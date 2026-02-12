@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mockup - Auswertung</title>
+  <style>
+    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; background:#f3f5f8; color:#1f2937; }
+    .wrap { padding:22px; }
+    .header { display:flex; justify-content:space-between; align-items:end; margin-bottom:14px; }
+    .muted { color:#64748b; font-size:12px; }
+    .grid { display:grid; grid-template-columns: 1.5fr .9fr; gap:14px; }
+    .card { background:white; border:1px solid #e5e7eb; border-radius:14px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border:1px solid #e5e7eb; padding:8px; vertical-align:top; }
+    th { background:#eef2ff; text-align:left; }
+    .chip { display:inline-block; background:#e2e8f0; border-radius:999px; padding:2px 8px; margin:2px 4px 0 0; }
+    .kpi { border-bottom:1px solid #eef2f7; padding:8px 0; }
+    .kpi:last-child { border-bottom:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h2 style="margin:0">Auswertung · Raumvergleich</h2>
+        <div class="muted">Vergleich über alle Räume inkl. Konsistenzindikatoren</div>
+      </div>
+      <div class="muted">Stand: 2026-02-12</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h3 style="margin:0 0 10px">Matrix</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Wohnzimmer</th>
+              <th>Büro</th>
+              <th>Schlafzimmer</th>
+              <th>Bad</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Lichtkonzept</strong></td>
+              <td><span class="chip">Zonen</span><span class="chip">Indirekt</span></td>
+              <td><span class="chip">Direkt</span></td>
+              <td><span class="chip">Zonen</span></td>
+              <td><span class="chip">Direkt</span><span class="chip">Akzentlicht</span></td>
+            </tr>
+            <tr>
+              <td><strong>Bedienkonzept</strong></td>
+              <td><span class="chip">Doppeltaster</span></td>
+              <td><span class="chip">Taster</span></td>
+              <td><span class="chip">Taster</span></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Netzwerk</strong></td>
+              <td><span class="chip">LAN-Dose vorhanden</span></td>
+              <td><span class="chip">LAN-Dose vorhanden</span><span class="chip">PoE im Raum</span></td>
+              <td><span class="chip">WLAN reicht</span></td>
+              <td><span class="chip">LAN-Dose optional</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3 style="margin:0 0 10px">Kennzahlen je Topic</h3>
+        <div class="kpi">
+          <strong>Lichtkonzept</strong>
+          <div class="muted">Räume mit Auswahl: 4/4 · Diversity: 4 · Konsistenz: 50%</div>
+        </div>
+        <div class="kpi">
+          <strong>Bedienkonzept</strong>
+          <div class="muted">Räume mit Auswahl: 3/4 · Diversity: 2 · Konsistenz: 67%</div>
+        </div>
+        <div class="kpi">
+          <strong>Netzwerk</strong>
+          <div class="muted">Räume mit Auswahl: 4/4 · Diversity: 4 · Konsistenz: 25%</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

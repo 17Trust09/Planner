@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mockup - Planungsmappe</title>
+  <style>
+    body { margin:0; font-family: 'Segoe UI', Arial, sans-serif; background:#f3f5f8; color:#1f2937; }
+    .app { display:flex; height:100vh; }
+    .sidebar { width:280px; background:#0f172a; color:#e2e8f0; padding:20px; box-sizing:border-box; }
+    .title { font-size:18px; font-weight:700; margin-bottom:20px; }
+    .nav h4 { margin:18px 0 8px; font-size:12px; letter-spacing:.08em; color:#94a3b8; text-transform:uppercase; }
+    .item { padding:10px 12px; border-radius:10px; margin:4px 0; background:transparent; }
+    .item.active { background:#1d4ed8; color:#fff; }
+    .content { flex:1; padding:24px; overflow:auto; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .toolbar .btn { background:#1d4ed8; color:#fff; border:none; padding:10px 14px; border-radius:8px; font-weight:600; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+    .card h3 { margin:0 0 10px; font-size:16px; }
+    .topic { display:grid; grid-template-columns: 220px 1fr 1fr; gap:12px; padding:10px 0; border-top:1px solid #f1f5f9; }
+    .topic:first-of-type { border-top:none; }
+    .selects { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+    .box { background:#f8fafc; border:1px solid #dbe1e8; border-radius:8px; padding:8px; font-size:12px; color:#334155; }
+    .note { background:#f8fafc; border:1px solid #dbe1e8; border-radius:8px; padding:8px; font-size:12px; color:#475569; min-height:44px; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="title">Smarthome Planungsmappe</div>
+      <div class="nav">
+        <div class="item">Start</div>
+        <div class="item active">Global</div>
+        <div class="item">Auswertung</div>
+        <h4>EG</h4>
+        <div class="item">Wohnzimmer</div>
+        <div class="item">HTR</div>
+        <div class="item">Flur</div>
+        <div class="item">WC EG</div>
+        <div class="item">Büro</div>
+        <h4>OG</h4>
+        <div class="item">Kinderzimmer 1</div>
+        <div class="item">Kinderzimmer 2</div>
+        <div class="item">Flur</div>
+        <div class="item">Ankleide</div>
+        <div class="item">Schlafzimmer</div>
+        <div class="item">Bad</div>
+      </div>
+    </aside>
+    <main class="content">
+      <div class="toolbar">
+        <div>
+          <h2 style="margin:0">Global_Planung</h2>
+          <div class="muted">Projekt: Haus Müller · Stand: 2026-02-12</div>
+        </div>
+        <button class="btn">Export (Excel / PDF)</button>
+      </div>
+
+      <section class="card">
+        <h3>ALLGEMEIN</h3>
+        <div class="topic">
+          <div>
+            <strong>Zielsetzung</strong>
+            <div class="muted">Fokus Komfort/Energie/Sicherheit/Technik</div>
+          </div>
+          <div class="selects">
+            <div class="box">Ja</div>
+            <div class="box">Vielleicht</div>
+            <div class="box">—</div>
+          </div>
+          <div class="note">Priorität auf Energieoptimierung und robuster Grundfunktion ohne Cloud-Zwang.</div>
+        </div>
+        <div class="topic">
+          <div><strong>Dokumentation</strong><div class="muted">Planungsstand und Änderungen festhalten</div></div>
+          <div class="selects"><div class="box">Ja</div><div class="box">—</div><div class="box">—</div></div>
+          <div class="note">Versionsstand je Gewerk als PDF bereitstellen.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>ELEKTRIK & SCHALTSCHRANK</h3>
+        <div class="topic">
+          <div><strong>Sternverkabelung / Aktoren</strong><div class="muted">Zentrale/dezentrale Strategie</div></div>
+          <div class="selects"><div class="box">Komplette Sternverkabelung</div><div class="box">Zentrale Aktoren (Hutschiene)</div><div class="box">—</div></div>
+          <div class="note">Reserveklemmen und 20% Ausbaureserve einplanen.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
