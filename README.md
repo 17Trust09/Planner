@@ -23,5 +23,13 @@ python app/main.py
 - Projekte: `data/projects/*.json`
 - Projektindex: `data/projects_index.json`
 
+
+## Erweiterte Planungspunkte (neu)
+- Server/Plattform-Auswahl (z. B. Raspberry Pi, Unraid, Proxmox, NAS)
+- Home-Assistant-Betriebsart (OS, Container, Supervised, Core)
+- Backup-Strategie und Funk-/Bus-Protokolle
+- Verdrahtungsart (inkl. Stern-/Misch-/BUS-Ansätzen)
+- Zusätzliche Raumdetails: Automationsgrad, Dimmen, Luftqualität, Kamera-Aufzeichnung, Netzabdeckung, Szenenbedarf
+
 ## Hinweise
 - PDF-Export ist nur im Status `Freigegeben` möglich (Status-Button in der linken Leiste).

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List
 
 
@@ -12,7 +12,6 @@ FLOORS: Dict[str, List[str]] = {
 DOMAIN_SMART = "SMART_HOME"
 DOMAIN_ELEC = "ELEKTRIK"
 DOMAIN_IT = "IT_NETZWERK"
-
 DOMAINS = [DOMAIN_SMART, DOMAIN_ELEC, DOMAIN_IT]
 
 OPTION_SETS: Dict[str, List[str]] = {
@@ -65,6 +64,35 @@ OPTION_SETS: Dict[str, List[str]] = {
         "Nicht relevant", "3 Phasen sauber verteilt", "3 Phasen + Lastmanagement vorgesehen",
         "Lastmanagement zwingend (WP/Wallbox)",
     ],
+    "SERVER_OPTIONS": [
+        "Raspberry Pi", "Intel NUC / Mini-PC", "Unraid Server", "Proxmox Host",
+        "NAS (Synology/QNAP)", "Home Assistant Green/Yellow", "VM auf bestehendem Server",
+    ],
+    "HA_OS_OPTIONS": [
+        "Home Assistant OS", "Home Assistant Container", "Home Assistant Supervised", "Home Assistant Core",
+    ],
+    "BACKUP_OPTIONS": [
+        "Keine Strategie", "Lokales Backup", "NAS-Backup", "Offsite-Backup", "3-2-1 Backup-Strategie",
+    ],
+    "PROTOCOL_OPTIONS": [
+        "Zigbee", "Z-Wave", "Thread/Matter", "KNX", "Modbus", "WLAN", "Bluetooth", "MQTT",
+    ],
+    "CABLE_OPTIONS": [
+        "Klassische Verdrahtung", "Teilweise Sternverdrahtung", "Komplette Sternverdrahtung",
+        "BUS-basierte Verdrahtung", "Mischform",
+    ],
+    "ROOM_ROLE_OPTIONS": [
+        "Wohnen", "Arbeiten", "Schlafen", "Kinder", "Bad/Wellness", "Technikraum", "Verkehrsfläche",
+    ],
+    "COVERAGE_OPTIONS": [
+        "Hoch (Office/Streaming)", "Mittel", "Basis", "Optional",
+    ],
+    "CAMERA_STORAGE_OPTIONS": [
+        "Keine Kamera", "NVR lokal", "NAS-Aufzeichnung", "SD-Karte lokal", "Hybrid",
+    ],
+    "AUTOMATION_LEVEL_OPTIONS": [
+        "Keine Automationen", "Basis (Zeit/Schwellwert)", "Mittel (Szenen + Präsenz)", "Erweitert (Kontext + Energie)",
+    ],
 }
 
 
@@ -81,16 +109,25 @@ class TopicDefinition:
 
 
 GLOBAL_TOPICS: List[TopicDefinition] = [
-    TopicDefinition("global_goal", "ALLGEMEIN", "Zielsetzung", "Fokus Komfort/Energie/Sicherheit/Technik", "YES_MAYBE_NO", [DOMAIN_SMART], True),
-    TopicDefinition("global_cloud", "ALLGEMEIN", "Cloud-Policy", "Cloud-Nutzung gewünscht oder vermeiden", "YES_MAYBE_NO", [DOMAIN_SMART, DOMAIN_IT]),
-    TopicDefinition("global_docs", "ALLGEMEIN", "Dokumentation", "Planung und Änderungen dokumentieren", "YES_MAYBE_NO", [DOMAIN_SMART, DOMAIN_ELEC, DOMAIN_IT], True),
-    TopicDefinition("global_stern", "ELEKTRIK & SCHALTSCHRANK", "Sternverkabelung / Aktoren", "Zentrale/dezentrale Strategie", "GLOBAL_STERN_OPTIONS", [DOMAIN_ELEC], True),
-    TopicDefinition("global_phase", "ELEKTRIK & SCHALTSCHRANK", "Phasen-/Lastverteilung", "Belastung und Lastmanagement", "GLOBAL_PHASE_OPTIONS", [DOMAIN_ELEC], True),
-    TopicDefinition("global_fi", "ELEKTRIK & SCHALTSCHRANK", "FI/RCD-Konzept", "Schutzkonzept abgestimmt", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
-    TopicDefinition("global_anschluss", "ELEKTRIK & SCHALTSCHRANK", "Anschlussplan", "Anschluss-/Klemmenplan vorhanden", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
+    TopicDefinition("global_goal", "ALLGEMEIN", "Zielsetzung", "Fokus Komfort/Energie/Sicherheit/Technik", "YES_MAYBE_NO", [DOMAIN_SMART], True, 3),
+    TopicDefinition("global_docs", "ALLGEMEIN", "Dokumentation", "Planung und Änderungen dokumentieren", "YES_MAYBE_NO", [DOMAIN_SMART, DOMAIN_ELEC, DOMAIN_IT], True, 3),
+    TopicDefinition("global_room_roles", "ALLGEMEIN", "Raumnutzungsprofil", "Nutzungsarten als Planungsbasis", "ROOM_ROLE_OPTIONS", [DOMAIN_SMART], True, 5),
+
+    TopicDefinition("global_server_hw", "SERVER & PLATTFORM", "Server-Hardware", "Hostsystem für Smart Home", "SERVER_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 3),
+    TopicDefinition("global_ha_mode", "SERVER & PLATTFORM", "Home-Assistant-Betriebsart", "Installationsmodus für HA", "HA_OS_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 2),
+    TopicDefinition("global_backup", "SERVER & PLATTFORM", "Backup-Strategie", "Datensicherung & Restore", "BACKUP_OPTIONS", [DOMAIN_IT], True, 3),
+
+    TopicDefinition("global_stern", "VERDRAHTUNG & ELEKTRIK", "Sternverkabelung / Aktoren", "Zentrale/dezentrale Strategie", "GLOBAL_STERN_OPTIONS", [DOMAIN_ELEC], True),
+    TopicDefinition("global_cable_type", "VERDRAHTUNG & ELEKTRIK", "Verdrahtungsart", "Wahl der grundlegenden Verdrahtung", "CABLE_OPTIONS", [DOMAIN_ELEC], True),
+    TopicDefinition("global_phase", "VERDRAHTUNG & ELEKTRIK", "Phasen-/Lastverteilung", "Belastung und Lastmanagement", "GLOBAL_PHASE_OPTIONS", [DOMAIN_ELEC], True),
+    TopicDefinition("global_fi", "VERDRAHTUNG & ELEKTRIK", "FI/RCD-Konzept", "Schutzkonzept abgestimmt", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
+    TopicDefinition("global_anschluss", "VERDRAHTUNG & ELEKTRIK", "Anschlussplan", "Anschluss-/Klemmenplan vorhanden", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
+
     TopicDefinition("global_network", "NETZWERK & FUNK", "Netzwerkstrategie", "LAN/WLAN/AP Strategie", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
     TopicDefinition("global_poe", "NETZWERK & FUNK", "PoE-Planung", "PoE-Versorgung geplant", "YES_MAYBE_NO", [DOMAIN_IT]),
-    TopicDefinition("global_radio", "NETZWERK & FUNK", "Funkstrategie", "Zigbee/Thread/WLAN Positionierung", "YES_MAYBE_NO", [DOMAIN_IT, DOMAIN_SMART]),
+    TopicDefinition("global_coverage", "NETZWERK & FUNK", "WLAN-Abdeckungsziel", "Qualitätsziel je Hausbereich", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("global_protocols", "NETZWERK & FUNK", "Funk-/Bus-Protokolle", "Genutzte Smart-Home-Protokolle", "PROTOCOL_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 5),
+
     TopicDefinition("global_pv", "ENERGIE & LASTMANAGEMENT", "PV/Monitoring", "PV-Daten in Planung integriert", "YES_MAYBE_NO", [DOMAIN_ELEC, DOMAIN_SMART]),
     TopicDefinition("global_load", "ENERGIE & LASTMANAGEMENT", "Lastmanagement", "Leistungssteuerung vorgesehen", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
     TopicDefinition("global_usv", "ENERGIE & LASTMANAGEMENT", "USV/Notbetrieb", "kritische Systeme absichern", "YES_MAYBE_NO", [DOMAIN_IT, DOMAIN_SMART]),
@@ -99,16 +136,27 @@ GLOBAL_TOPICS: List[TopicDefinition] = [
 ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_control", "ALLGEMEIN", "Bedienkonzept", "Bedienlogik im Raum", "CONTROL_OPTIONS", [DOMAIN_SMART], True),
     TopicDefinition("room_light_logic", "ALLGEMEIN", "Licht-Logik", "Schalt-/Aktorlogik", "LIGHT_LOGIC_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC], True),
+    TopicDefinition("room_automation_level", "ALLGEMEIN", "Automationsgrad", "Gewünschter Automationsumfang", "AUTOMATION_LEVEL_OPTIONS", [DOMAIN_SMART], True, 2),
+
     TopicDefinition("room_light", "LICHT", "Lichtkonzept", "Lichtarten/Zonen im Raum", "LIGHT_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC], True),
     TopicDefinition("room_switch", "LICHT", "Schaltpunkte", "Anzahl/Position in Notizen", "YES_MAYBE_NO", [DOMAIN_ELEC]),
+    TopicDefinition("room_dimming", "LICHT", "Dimmen", "Dimmfunktion pro Lichtzone", "YES_MAYBE_NO", [DOMAIN_SMART, DOMAIN_ELEC]),
+
     TopicDefinition("room_heat", "KLIMA", "Heizung/Regelung", "Heiz-/Regelstrategie", "HEAT_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
     TopicDefinition("room_climate_sensors", "KLIMA", "Sensorik Klima", "Klima-Sensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
+    TopicDefinition("room_air_quality", "KLIMA", "Luftqualität", "CO₂/Luftgüte aktiv überwachen", "YES_MAYBE_NO", [DOMAIN_SMART]),
+
     TopicDefinition("room_security", "SICHERHEIT", "Tür/Fenster/Alarm", "Sicherheitsbedarf", "SECURITY_OPTIONS", [DOMAIN_SMART], True),
     TopicDefinition("room_water", "SICHERHEIT", "Wasserleck", "Leckschutzbedarf", "WATER_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
+    TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2),
+
     TopicDefinition("room_network", "NETZWERK", "Netzwerk", "LAN/WLAN/PoE im Raum", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
+    TopicDefinition("room_coverage", "NETZWERK", "Netzabdeckung Raum", "Abdeckungsziel pro Raum", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_power", "NETZWERK", "Steckdosen & Messung", "Schalt-/Messbedarf", "POWER_OPTIONS", [DOMAIN_ELEC, DOMAIN_SMART]),
+
     TopicDefinition("room_sensor_general", "AUTOMATIONEN", "Sensorik allgemein", "Automationssensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
     TopicDefinition("room_shade", "AUTOMATIONEN", "Beschattung", "Beschattungslogik", "SHADE_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
+    TopicDefinition("room_scenes", "AUTOMATIONEN", "Szenenbedarf", "Szenen wie Abend/Abwesend/Urlaub", "YES_MAYBE_NO", [DOMAIN_SMART], True),
 ]
 
 
