@@ -145,7 +145,8 @@ class MainWindow(QMainWindow):
             page.persist()
 
     def _on_project_changed(self) -> None:
-        self._persist_all_pages()
+        # Kein Full-Reload: Änderungen bleiben lokal auf der aktiven Seite.
+        self.current_project.touch()
 
     def _save_project(self) -> None:
         self._persist_all_pages()

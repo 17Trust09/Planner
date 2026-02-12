@@ -38,7 +38,7 @@ class TopicPage(QWidget):
             box_layout = QVBoxLayout(box)
             for topic in section_topics:
                 row = TopicRowWidget(topic, states[topic.key])
-                row.changed.connect(self.changed.emit)
+                row.changed.connect(lambda key=topic.key, widget=row: self._update_state(key, widget))
                 row.setFrameStyle(QFrame.NoFrame) if hasattr(row, "setFrameStyle") else None
                 self.rows[topic.key] = row
                 box_layout.addWidget(row)
@@ -47,6 +47,10 @@ class TopicPage(QWidget):
 
         scroll.setWidget(body)
         root.addWidget(scroll)
+
+    def _update_state(self, key: str, row: TopicRowWidget) -> None:
+        self.states[key] = row.get_state()
+        self.changed.emit()
 
     def persist(self) -> None:
         for key, row in self.rows.items():
