@@ -37,7 +37,9 @@ class TopicPage(QWidget):
             box = QGroupBox(section)
             box_layout = QVBoxLayout(box)
             for topic in section_topics:
-                row = TopicRowWidget(topic, states[topic.key])
+                state = states.get(topic.key, TopicState())
+                states.setdefault(topic.key, state)
+                row = TopicRowWidget(topic, state)
                 row.changed.connect(lambda key=topic.key, widget=row: self._update_state(key, widget))
                 row.setFrameStyle(QFrame.NoFrame) if hasattr(row, "setFrameStyle") else None
                 self.rows[topic.key] = row

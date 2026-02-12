@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.models.definitions import FLOORS, GLOBAL_TOPICS, ROOM_TOPICS
-from app.models.project import Project, create_empty_project
+from app.models.definitions import GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.project import Project, RoomData, TopicState, create_empty_project
 from app.services.import_excel import import_project_from_excel
 from app.services.storage import (
     PROJECTS_DIR,
@@ -27,9 +27,11 @@ from app.services.storage import (
     rename_project_in_index,
     save_project,
 )
+from app.services.topic_visibility import is_room_topic_applicable
 from app.services.validation import validate_required_fields
 from app.ui.export_worker import ExportWorker
 from app.ui.pages.evaluation_page import EvaluationPage
+from app.ui.pages.rooms_page import RoomsPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
 
@@ -71,6 +73,8 @@ class MainWindow(QMainWindow):
         self.start_page.load_requested.connect(self._load_from_start)
         self.start_page.delete_requested.connect(self._delete_project)
         self.start_page.rename_requested.connect(self._rename_project)
+        self.rooms_page = RoomsPage()
+        self.rooms_page.rooms_changed.connect(self._on_rooms_changed)
         self.eval_page = EvaluationPage()
         self.room_pages: dict[str, TopicPage] = {}
 
@@ -83,11 +87,17 @@ class MainWindow(QMainWindow):
         self.nav.clear()
         self.nav.addItem("Start")
         self.nav.addItem("Global")
+        self.nav.addItem("Räume")
         self.nav.addItem("Auswertung")
-        for floor, rooms in FLOORS.items():
+
+        grouped: dict[str, list[str]] = {}
+        for room in self.current_project.rooms.values():
+            grouped.setdefault(room.floor, []).append(room.name)
+
+        for floor in sorted(grouped.keys()):
             self.nav.addItem(f"-- {floor} --")
-            for room in rooms:
-                self.nav.addItem(room)
+            for room_name in sorted(grouped[floor]):
+                self.nav.addItem(room_name)
         self.nav.setCurrentRow(0)
 
     def _build_pages(self) -> None:
@@ -95,9 +105,19 @@ class MainWindow(QMainWindow):
         self.global_page = TopicPage("Global_Planung", GLOBAL_TOPICS, self.current_project.global_topics)
         self.global_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.global_page)
+
+        room_config_data = {
+            room.name: {"floor": room.floor, "room_type": room.room_type}
+            for room in self.current_project.rooms.values()
+        }
+        self.rooms_page.set_rooms(room_config_data)
+        self.stack.addWidget(self.rooms_page)
+
         self.stack.addWidget(self.eval_page)
         for room_name in self.current_project.rooms.keys():
-            page = TopicPage(room_name, ROOM_TOPICS, self.current_project.rooms[room_name].topics)
+            room = self.current_project.rooms[room_name]
+            visible_topics = [topic for topic in ROOM_TOPICS if is_room_topic_applicable(self.current_project, room, topic)]
+            page = TopicPage(f"{room_name} ({room.floor})", visible_topics, self.current_project.rooms[room_name].topics)
             page.changed.connect(self._on_project_changed)
             self.room_pages[room_name] = page
             self.stack.addWidget(page)
@@ -123,6 +143,9 @@ class MainWindow(QMainWindow):
         if text == "Global":
             self.stack.setCurrentWidget(self.global_page)
             return
+        if text == "Räume":
+            self.stack.setCurrentWidget(self.rooms_page)
+            return
         if text == "Auswertung":
             self._persist_all_pages()
             self.eval_page.refresh(self.current_project)
@@ -147,7 +170,10 @@ class MainWindow(QMainWindow):
         self.start_page.load_requested.connect(self._load_from_start)
         self.start_page.delete_requested.connect(self._delete_project)
         self.start_page.rename_requested.connect(self._rename_project)
+        self.rooms_page = RoomsPage()
+        self.rooms_page.rooms_changed.connect(self._on_rooms_changed)
         self.eval_page = EvaluationPage()
+        self._build_navigation()
         self._build_pages()
         self.refresh_start()
 
@@ -158,6 +184,29 @@ class MainWindow(QMainWindow):
 
     def _on_project_changed(self) -> None:
         self.current_project.touch()
+
+    def _on_rooms_changed(self) -> None:
+        updated = self.rooms_page.get_rooms()
+        existing = self.current_project.rooms
+
+        new_rooms: dict[str, RoomData] = {}
+        for room_name, info in updated.items():
+            if room_name in existing:
+                room = existing[room_name]
+                room.floor = info["floor"]
+                room.room_type = info.get("room_type", "other")
+                new_rooms[room_name] = room
+            else:
+                new_rooms[room_name] = RoomData(
+                    name=room_name,
+                    floor=info["floor"],
+                    room_type=info.get("room_type", "other"),
+                    topics={topic.key: TopicState() for topic in ROOM_TOPICS},
+                )
+
+        self.current_project.rooms = new_rooms
+        self.current_project.touch()
+        self._rebuild_for_project()
 
     def _save_project(self) -> None:
         self._persist_all_pages()

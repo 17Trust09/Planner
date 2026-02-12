@@ -4,9 +4,34 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 
-FLOORS: Dict[str, List[str]] = {
-    "EG": ["Wohnzimmer", "HTR", "Flur EG", "WC EG", "Büro"],
-    "OG": ["Kinderzimmer 1", "Kinderzimmer 2", "Flur OG", "Ankleide", "Schlafzimmer", "Bad"],
+DEFAULT_FLOORS: Dict[str, List[dict]] = {
+    "EG": [
+        {"name": "Wohnzimmer", "room_type": "living"},
+        {"name": "HTR", "room_type": "utility"},
+        {"name": "Flur EG", "room_type": "hallway"},
+        {"name": "WC EG", "room_type": "bathroom"},
+        {"name": "Büro", "room_type": "office"},
+    ],
+    "OG": [
+        {"name": "Kinderzimmer 1", "room_type": "bedroom"},
+        {"name": "Kinderzimmer 2", "room_type": "bedroom"},
+        {"name": "Flur OG", "room_type": "hallway"},
+        {"name": "Ankleide", "room_type": "bedroom"},
+        {"name": "Schlafzimmer", "room_type": "bedroom"},
+        {"name": "Bad", "room_type": "bathroom"},
+    ],
+}
+
+ROOM_TYPE_OPTIONS: Dict[str, str] = {
+    "living": "Wohnen",
+    "bedroom": "Schlafen/Kinder",
+    "office": "Arbeiten/Büro",
+    "bathroom": "Bad/WC",
+    "kitchen": "Küche",
+    "hallway": "Flur/Verkehr",
+    "utility": "Technik/HTR/Keller",
+    "outdoor": "Außenbereich",
+    "other": "Sonstiges",
 }
 
 DOMAIN_SMART = "SMART_HOME"
@@ -106,6 +131,7 @@ class TopicDefinition:
     domains: List[str]
     required_for_export: bool = False
     max_selections: int = 3
+    applicable_room_types: List[str] | None = None
 
 
 GLOBAL_TOPICS: List[TopicDefinition] = [
@@ -144,20 +170,20 @@ ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_switch", "LICHT", "Schaltpunkte", "Anzahl/Position in Notizen", "YES_MAYBE_NO", [DOMAIN_ELEC]),
     TopicDefinition("room_dimming", "LICHT", "Dimmen", "Dimmfunktion pro Lichtzone", "YES_MAYBE_NO", [DOMAIN_SMART, DOMAIN_ELEC]),
 
-    TopicDefinition("room_heat", "KLIMA", "Heizung/Regelung", "Heiz-/Regelstrategie", "HEAT_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
-    TopicDefinition("room_climate_sensors", "KLIMA", "Sensorik Klima", "Klima-Sensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
-    TopicDefinition("room_air_quality", "KLIMA", "Luftqualität", "CO₂/Luftgüte aktiv überwachen", "YES_MAYBE_NO", [DOMAIN_SMART]),
+    TopicDefinition("room_heat", "KLIMA", "Heizung/Regelung", "Heiz-/Regelstrategie", "HEAT_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC], False, 3, ["living", "bedroom", "office", "bathroom", "kitchen"]),
+    TopicDefinition("room_climate_sensors", "KLIMA", "Sensorik Klima", "Klima-Sensorik", "SENSOR_OPTIONS", [DOMAIN_SMART], False, 3, ["living", "bedroom", "office", "bathroom", "kitchen"]),
+    TopicDefinition("room_air_quality", "KLIMA", "Luftqualität", "CO₂/Luftgüte aktiv überwachen", "YES_MAYBE_NO", [DOMAIN_SMART], False, 3, ["living", "bedroom", "office", "kitchen"]),
 
     TopicDefinition("room_security", "SICHERHEIT", "Tür/Fenster/Alarm", "Sicherheitsbedarf", "SECURITY_OPTIONS", [DOMAIN_SMART], True),
-    TopicDefinition("room_water", "SICHERHEIT", "Wasserleck", "Leckschutzbedarf", "WATER_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
-    TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2),
+    TopicDefinition("room_water", "SICHERHEIT", "Wasserleck", "Leckschutzbedarf", "WATER_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC], False, 3, ["bathroom", "kitchen", "utility"]),
+    TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2, ["outdoor", "hallway", "living"]),
 
     TopicDefinition("room_network", "NETZWERK", "Netzwerk", "LAN/WLAN/PoE im Raum", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
     TopicDefinition("room_coverage", "NETZWERK", "Netzabdeckung Raum", "Abdeckungsziel pro Raum", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_power", "NETZWERK", "Steckdosen & Messung", "Schalt-/Messbedarf", "POWER_OPTIONS", [DOMAIN_ELEC, DOMAIN_SMART]),
 
     TopicDefinition("room_sensor_general", "AUTOMATIONEN", "Sensorik allgemein", "Automationssensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
-    TopicDefinition("room_shade", "AUTOMATIONEN", "Beschattung", "Beschattungslogik", "SHADE_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
+    TopicDefinition("room_shade", "AUTOMATIONEN", "Beschattung", "Beschattungslogik", "SHADE_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC], False, 3, ["living", "bedroom", "office", "kitchen"]),
     TopicDefinition("room_scenes", "AUTOMATIONEN", "Szenenbedarf", "Szenen wie Abend/Abwesend/Urlaub", "YES_MAYBE_NO", [DOMAIN_SMART], True),
 ]
 
