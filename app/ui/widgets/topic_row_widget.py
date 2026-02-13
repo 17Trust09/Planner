@@ -31,7 +31,7 @@ class TopicRowWidget(QWidget):
         main = QVBoxLayout(self)
         title = QLabel(f"<b>{definition.title}</b>")
         desc = QLabel(definition.description)
-        desc.setStyleSheet("color:#64748b;")
+        desc.setStyleSheet("color:#475569;")
         main.addWidget(title)
         main.addWidget(desc)
 
