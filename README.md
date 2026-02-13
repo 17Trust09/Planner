@@ -15,6 +15,7 @@ Lokales Desktop-Tool (PySide6) zur Planung von Smart Home / Elektrik / IT je Rau
 - Excel-Import (tolerant, optional)
 - Projektverwaltung inkl. Umbenennen/Löschen
 - Änderungsprotokoll bei Speichern unter `data/changes/*.txt`
+- Itemspezifische Anlagen im Edit-Bereich: Anzeigebild + Datei-Uploads mit Kategorieauswahl
 
 ## Start
 ```bash

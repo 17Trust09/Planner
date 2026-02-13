@@ -12,6 +12,8 @@ class TopicState:
     selections: List[str] = field(default_factory=list)
     notes: str = ""
     assignee: str = ""
+    display_image: str = ""
+    documents: List[Dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -44,7 +46,10 @@ class Project:
 
     @staticmethod
     def from_dict(data: Dict) -> "Project":
-        metadata = ProjectMetadata(**data["metadata"])
+        metadata_data = data["metadata"].copy()
+        metadata_data.pop("display_image", None)
+        metadata_data.pop("documents", None)
+        metadata = ProjectMetadata(**metadata_data)
         global_topics = {k: TopicState(**v) for k, v in data.get("global_topics", {}).items()}
         rooms: Dict[str, RoomData] = {}
         for name, room_data in data.get("rooms", {}).items():

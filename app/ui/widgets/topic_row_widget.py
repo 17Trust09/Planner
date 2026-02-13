@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from typing import Callable, List
+from pathlib import Path
+from typing import List
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -17,6 +21,13 @@ from PySide6.QtWidgets import (
 
 from app.models.definitions import OPTION_SETS, TopicDefinition
 from app.models.project import TopicState
+
+DOCUMENT_CATEGORIES = [
+    "Betriebsanweisung",
+    "Bedienungsanleitung",
+    "Allgemeine Unterlagen",
+    "Dokumentation",
+]
 
 
 class TopicRowWidget(QWidget):
@@ -60,6 +71,44 @@ class TopicRowWidget(QWidget):
         main.addWidget(self.assignee)
         main.addWidget(self.notes)
 
+        assets_box = QGroupBox("Anlagen (itemspezifisch)")
+        assets_layout = QVBoxLayout(assets_box)
+
+        image_row = QHBoxLayout()
+        self.select_image_btn = QPushButton("Bild auswählen")
+        self.clear_image_btn = QPushButton("Bild entfernen")
+        self.select_image_btn.clicked.connect(self._select_image)
+        self.clear_image_btn.clicked.connect(self._clear_image)
+        image_row.addWidget(self.select_image_btn)
+        image_row.addWidget(self.clear_image_btn)
+        image_row.addStretch()
+        assets_layout.addLayout(image_row)
+
+        self.image_label = QLabel()
+        assets_layout.addWidget(self.image_label)
+
+        docs_row = QHBoxLayout()
+        self.category_combo = QComboBox()
+        self.category_combo.addItems(DOCUMENT_CATEGORIES)
+        self.upload_doc_btn = QPushButton("Datei hochladen")
+        self.upload_doc_btn.clicked.connect(self._upload_document)
+        docs_row.addWidget(QLabel("Kategorie:"))
+        docs_row.addWidget(self.category_combo)
+        docs_row.addWidget(self.upload_doc_btn)
+        assets_layout.addLayout(docs_row)
+
+        self.documents_list = QListWidget()
+        assets_layout.addWidget(self.documents_list)
+
+        remove_row = QHBoxLayout()
+        self.remove_doc_btn = QPushButton("Ausgewählte Datei entfernen")
+        self.remove_doc_btn.clicked.connect(self._remove_selected_document)
+        remove_row.addWidget(self.remove_doc_btn)
+        remove_row.addStretch()
+        assets_layout.addLayout(remove_row)
+
+        main.addWidget(assets_box)
+
         initial = max(1, len(state.selections))
         for _ in range(initial):
             self.add_combo(emit=False)
@@ -67,6 +116,7 @@ class TopicRowWidget(QWidget):
             if i < len(self.combos):
                 self.combos[i].setCurrentText(val)
         self._update_buttons()
+        self._refresh_assets_view()
 
     def add_combo(self, emit: bool = True) -> None:
         if len(self.combos) >= self.definition.max_selections:
@@ -104,13 +154,62 @@ class TopicRowWidget(QWidget):
         self.add_btn.setEnabled(len(self.combos) < self.definition.max_selections)
         self.remove_btn.setEnabled(len(self.combos) > 1)
 
+    def _select_image(self) -> None:
+        selected, _ = QFileDialog.getOpenFileName(self, "Anzeigebild auswählen", "", "Bilder (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if not selected:
+            return
+        self.state.display_image = selected
+        self._refresh_assets_view()
+        self._emit()
+
+    def _clear_image(self) -> None:
+        if not self.state.display_image:
+            return
+        self.state.display_image = ""
+        self._refresh_assets_view()
+        self._emit()
+
+    def _upload_document(self) -> None:
+        selected, _ = QFileDialog.getOpenFileName(self, "Dokument auswählen", "", "Alle Dateien (*.*)")
+        if not selected:
+            return
+        self.state.documents.append({"category": self.category_combo.currentText(), "path": selected})
+        self._refresh_assets_view()
+        self._emit()
+
+    def _remove_selected_document(self) -> None:
+        row = self.documents_list.currentRow()
+        if row < 0 or row >= len(self.state.documents):
+            return
+        self.state.documents.pop(row)
+        self._refresh_assets_view()
+        self._emit()
+
+    def _refresh_assets_view(self) -> None:
+        if self.state.display_image:
+            self.image_label.setText(f"Ausgewählt: {Path(self.state.display_image).name}")
+        else:
+            self.image_label.setText("Kein Anzeigebild ausgewählt")
+
+        self.documents_list.clear()
+        for item in self.state.documents:
+            category = item.get("category", "Unkategorisiert")
+            file_name = Path(item.get("path", "")).name or "Unbekannte Datei"
+            self.documents_list.addItem(f"{category}: {file_name}")
+
     def get_state(self) -> TopicState:
         selections = []
         for c in self.combos:
             value = c.currentText().strip()
             if value and value not in selections:
                 selections.append(value)
-        return TopicState(selections=selections, notes=self.notes.toPlainText().strip(), assignee=self.assignee.text().strip())
+        return TopicState(
+            selections=selections,
+            notes=self.notes.toPlainText().strip(),
+            assignee=self.assignee.text().strip(),
+            display_image=self.state.display_image,
+            documents=list(self.state.documents),
+        )
 
     def _emit(self) -> None:
         self.changed.emit()
