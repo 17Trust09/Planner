@@ -12,6 +12,7 @@ from app.services.evaluation import build_room_matrix, topic_metrics
 HEADER_FILL = PatternFill("solid", fgColor="1D4ED8")
 SECTION_FILL = PatternFill("solid", fgColor="E2E8F0")
 ALT_FILL = PatternFill("solid", fgColor="F8FAFC")
+DEFAULT_EMPTY = "N/A"
 
 
 def _write_topic_sheet(ws, title: str, topics, topic_values) -> None:
@@ -31,7 +32,13 @@ def _write_topic_sheet(ws, title: str, topics, topic_values) -> None:
             row += 1
             current_section = topic.section
         state = topic_values[topic.key]
-        ws.append([topic.section, topic.title, ", ".join(state.selections) or "—", state.notes, state.assignee])
+        ws.append([
+            topic.section,
+            topic.title,
+            ", ".join(state.selections) or DEFAULT_EMPTY,
+            state.notes or DEFAULT_EMPTY,
+            state.assignee or DEFAULT_EMPTY,
+        ])
         if row % 2 == 0:
             for col in range(1, 6):
                 ws.cell(row=row, column=col).fill = ALT_FILL
@@ -61,7 +68,7 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
     metrics = topic_metrics(project)
     row = 2
     for topic, per_room in matrix.items():
-        values = [", ".join(per_room[r]) or "—" for r in project.rooms.keys()]
+        values = [", ".join(per_room[r]) or DEFAULT_EMPTY for r in project.rooms.keys()]
         m = metrics[topic]
         ws_eval.append([
             topic,

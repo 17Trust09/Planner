@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTextEdit,
     QToolButton,
@@ -89,7 +90,9 @@ class TopicRowWidget(QWidget):
         info_btn = QToolButton()
         info_btn.setText("?")
         info_btn.setToolTip(self.info_text)
-        info_btn.setCursor(Qt.WhatsThisCursor)
+        info_btn.setToolTipDuration(30000)
+        info_btn.setCursor(Qt.PointingHandCursor)
+        info_btn.clicked.connect(self._show_info_dialog)
         info_btn.setStyleSheet("QToolButton{color:#1d4ed8; font-weight:700; border:1px solid #93c5fd; border-radius:10px; padding:0 6px;}")
 
         title_row.addWidget(title)
@@ -134,6 +137,10 @@ class TopicRowWidget(QWidget):
             if i < len(self.combos):
                 self.combos[i].setCurrentText(val)
         self._update_buttons()
+
+
+    def _show_info_dialog(self) -> None:
+        QMessageBox.information(self, f"Info: {self.definition.title}", self.info_text)
 
     def _build_info_text(self) -> str:
         topic_explainer = TOPIC_HELP_OVERRIDES.get(self.definition.key, self.definition.help_text.strip() or self.definition.description)

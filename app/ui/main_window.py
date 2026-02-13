@@ -27,7 +27,6 @@ from app.services.storage import (
     rename_project_in_index,
     save_project,
 )
-from app.services.validation import validate_required_fields
 from app.ui.export_worker import ExportWorker
 from app.ui.pages.evaluation_page import EvaluationPage
 from app.ui.pages.start_page import StartPage
@@ -255,20 +254,12 @@ class MainWindow(QMainWindow):
 
     def _export_excel(self) -> None:
         self._persist_all_pages()
-        errors = validate_required_fields(self.current_project)
-        if errors:
-            QMessageBox.warning(self, "Pflichtfelder fehlen", "\n".join(errors[:20]))
-            return
         target, _ = QFileDialog.getSaveFileName(self, "Excel exportieren", "export.xlsx", "Excel (*.xlsx)")
         if target:
             self._start_export("excel", Path(target))
 
     def _export_pdf(self) -> None:
         self._persist_all_pages()
-        errors = validate_required_fields(self.current_project)
-        if errors:
-            QMessageBox.warning(self, "Pflichtfelder fehlen", "\n".join(errors[:20]))
-            return
         if self.current_project.metadata.status != "Freigegeben":
             QMessageBox.warning(self, "Status", "PDF Export nur im Status 'Freigegeben'.")
             return

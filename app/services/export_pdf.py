@@ -12,6 +12,8 @@ from app.models.project import Project
 from app.services.evaluation import room_score
 from app.services.validation import detect_conflicts_detailed
 
+DEFAULT_EMPTY = "N/A"
+
 
 def _table(data, header_color: str):
     t = Table(data, repeatRows=1)
@@ -41,7 +43,7 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
     global_data = [["Thema", "Auswahl(en)", "Verantwortlich", "Notizen"]]
     for t in GLOBAL_TOPICS:
         s = project.global_topics[t.key]
-        global_data.append([t.title, ", ".join(s.selections) or "—", s.assignee or "—", s.notes or "—"])
+        global_data.append([t.title, ", ".join(s.selections) or DEFAULT_EMPTY, s.assignee or DEFAULT_EMPTY, s.notes or DEFAULT_EMPTY])
     flow.append(_table(global_data, "#1D4ED8"))
     flow.append(Spacer(1, 12))
 
@@ -56,7 +58,7 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
         rows = [["Thema", "Auswahl(en)", "Verantwortlich", "Notizen"]]
         for t in ROOM_TOPICS:
             s = room.topics[t.key]
-            rows.append([t.title, ", ".join(s.selections) or "—", s.assignee or "—", s.notes or "—"])
+            rows.append([t.title, ", ".join(s.selections) or DEFAULT_EMPTY, s.assignee or DEFAULT_EMPTY, s.notes or DEFAULT_EMPTY])
         flow.append(_table(rows, "#0F172A"))
 
         if room_name in conflicts:
