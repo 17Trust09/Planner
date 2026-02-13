@@ -31,12 +31,118 @@ TOPIC_HELP_OVERRIDES: Dict[str, str] = {
 }
 
 OPTION_SET_LEGENDS: Dict[str, Dict[str, str]] = {
+    "CONTROL_OPTIONS": {
+        "Kippschalter (klassisch)": "Klassischer Schalter mit fester EIN/AUS-Funktion ohne Szenenlogik.",
+        "Taster (Impuls)": "Impulsgeber für Relais/Aktor; Logik liegt in Aktor oder Steuerung.",
+        "Doppeltaster / Szenentaster": "Mehrere Funktionen/Szenen über getrennte Tasten am selben Bedienstelle.",
+        "Drehdimmer": "Haptischer Dimmer direkt am Raum, oft mit Ein/Aus + Helligkeitsregelung.",
+        "Wallpanel/Tablet": "Visualisierung an der Wand für zentrale Bedienung mehrerer Funktionen.",
+        "Sprachsteuerung (optional)": "Bedienung per Sprachassistent als Ergänzung zu physischen Tastern.",
+        "App (nur Ergänzung)": "Smartphone-App als Zusatz, nicht als alleinige Primärbedienung.",
+    },
+    "LIGHT_OPTIONS": {
+        "Nur Grundbeleuchtung": "Ein zentraler Lichtkreis pro Raum ohne zusätzliche Lichtstimmung.",
+        "Zonen (mehrere Lichtkreise)": "Mehrere getrennt schaltbare Bereiche im Raum (z. B. Decke, Esstisch).",
+        "Indirekt (LED-Cove/Decke/Wand)": "Licht über Reflexion/Verblendung für weiche Grundstimmung.",
+        "Direkt (Spots/Downlights)": "Gerichtetes Licht auf Nutzflächen mit klarer Ausleuchtung.",
+        "Akzentlicht (Regal/Nische)": "Gezielte Betonung von Möbeln/Architektur, eher dekorativ.",
+        "RGB (Ambient)": "Farbwechsel-Licht für Szenen und Ambiente, meist nicht Hauptlicht.",
+        "Tunable White (Warm/Kalt)": "Einstellbare Farbtemperatur (warm bis kaltweiß) je nach Nutzung.",
+    },
+    "LIGHT_LOGIC_OPTIONS": {
+        "Aktor im Schaltschrank (Stern)": "Schalt-/Dimmaktor sitzt zentral im Schaltschrank; Leitungen laufen sternförmig dorthin.",
+        "Aktor Unterputz (dezentral)": "Aktor liegt lokal hinter Schalter/Leuchte im Raum.",
+        "Smarte Leuchtmittel (Dauerstrom)": "Leuchten erhalten Dauerstrom; Schaltlogik sitzt in der Lampe selbst.",
+        "Mischform (Aktor + smarte Lampen)": "Kombination aus klassischer Aktorik und smarten Leuchtmitteln je nach Bereich.",
+    },
+    "HEAT_OPTIONS": {
+        "Keine Einzelraumregelung": "Temperatur wird zentral geführt, nicht pro Raum individuell geregelt.",
+        "Thermostat (Heizkörper)": "Raumweise Regelung über Heizkörperthermostate.",
+        "FBH (Fußbodenheizung) – Raumregelung": "Raumweise Steuerung der Fußbodenheizkreise über Stellantriebe.",
+        "Fenster-auf-Erkennung": "Heizleistung wird bei geöffnetem Fenster reduziert/pausiert.",
+        "Zeitprogramm": "Temperaturprofile nach Tageszeit/Wochentag.",
+        "Nachtabsenkung / Eco-Modus": "Automatische Sollwertsenkung zur Energieeinsparung in Ruhezeiten.",
+    },
+    "SHADE_OPTIONS": {
+        "Keine Beschattung": "Keine automatisierte oder geplante Rollladen/Jalousie-Logik.",
+        "Manuell": "Bedienung nur per Taster/Hand ohne Automationsregeln.",
+        "Zeitgesteuert": "Feste Fahrzeiten (z. B. morgens hoch, abends runter).",
+        "Sonnenstand (Azimut/Höhe)": "Automatik orientiert sich an Sonnenposition für Blend-/Wärmeschutz.",
+        "Wetter/Windschutz": "Sicherheitsautomatik bei Wind/Regen (v. a. bei Raffstores/Markisen).",
+        "Sommer-Hitzeschutz": "Automatisches Schließen bei starker Einstrahlung zur Kühlungsunterstützung.",
+    },
+    "ROOM_NETWORK_OPTIONS": {
+        "LAN-Dose vorhanden": "Fester Ethernet-Anschluss ist geplant/vorhanden.",
+        "LAN-Dose optional": "LAN ist vorgesehen, kann aber je nach Bedarf entfallen.",
+        "WLAN reicht": "Raumnutzung benötigt keinen festen LAN-Anschluss.",
+        "AP in/nahe Raum geplant": "Access Point in unmittelbarer Nähe für stabile Funkversorgung.",
+        "PoE im Raum (z.B. Panel/Kamera)": "Stromversorgung über Netzwerkkabel für passende Geräte.",
+    },
+    "SECURITY_OPTIONS": {
+        "Kein Bedarf": "Für diesen Raum sind keine speziellen Sicherheitsfunktionen geplant.",
+        "Fensterkontakte": "Öffnungsstatus der Fenster wird überwacht.",
+        "Türkontakt": "Öffnungsstatus der Tür wird überwacht.",
+        "Alarmmodus (Nacht/Abwesend)": "Sensoren werden je nach Hausmodus scharf/unscharf geschaltet.",
+        "Sirene/Signalgeber": "Akustische/optische Alarmierung bei erkannten Ereignissen.",
+        "Kamera (lokal)": "Videoüberwachung mit lokaler Speicherung/Verarbeitung.",
+    },
+    "WATER_OPTIONS": {
+        "Nicht nötig": "Kein Leckschutz für diesen Bereich vorgesehen.",
+        "Lecksensor": "Nur Erkennung von Wasseraustritt ohne automatische Reaktion.",
+        "Lecksensor + Push-Alarm": "Erkennung plus Benachrichtigung auf Smartphone.",
+        "Lecksensor + Absperrventil (optional)": "Erkennung plus automatische/optionale Wasserabschaltung.",
+    },
+    "POWER_OPTIONS": {
+        "Normale Steckdosen": "Standard-Stromkreise ohne Schalt- oder Messfunktion.",
+        "Schaltbar (Smart Plug)": "Steckdosen/Geräte lassen sich ein- und ausschalten.",
+        "Schaltbar + Messung": "Schalten und gleichzeitige Energie-/Leistungsmessung.",
+        "Fester Aktor/Relais + Messung": "Fest installierte Schalttechnik inkl. Messung im Verteil-/Unterputzbereich.",
+        "Großverbraucher separat messen": "Eigene Messung für Geräte mit hoher Leistung (z. B. Trockner, Sauna).",
+    },
     "GLOBAL_STERN_OPTIONS": {
         "Keine Sternverkabelung (klassisch)": "Klassische Installation, Schalter/Aktoren lokal ohne zentrale Sternstruktur.",
         "Teilweise Sternverkabelung": "Nur ausgewählte Kreise zentral geführt, Rest klassisch/dezentral.",
         "Komplette Sternverkabelung": "Alle relevanten Leitungen laufen zentral in den Verteilerschrank.",
         "Zentrale Aktoren (Hutschiene)": "Schalt-/Dimmaktoren sitzen im Schaltschrank auf Hutschiene.",
         "Dezentrale Aktoren (UP)": "Aktorik sitzt Unterputz direkt in den Räumen.",
+    },
+    "GLOBAL_PHASE_OPTIONS": {
+        "Nicht relevant": "Keine besondere Phasenplanung erforderlich.",
+        "3 Phasen sauber verteilt": "Verbraucher werden möglichst gleichmäßig auf L1/L2/L3 verteilt.",
+        "3 Phasen + Lastmanagement vorgesehen": "Zusätzlich zur Verteilung wird aktive Laststeuerung eingeplant.",
+        "Lastmanagement zwingend (WP/Wallbox)": "Pflicht bei großen Lasten wie Wärmepumpe/Wallbox, um Spitzen zu begrenzen.",
+    },
+    "SERVER_OPTIONS": {
+        "Raspberry Pi": "Kompakte, stromsparende Lösung für kleine bis mittlere Installationen.",
+        "Intel NUC / Mini-PC": "Leistungsstärkeres lokales System mit Reserven für Add-ons und Datenbanken.",
+        "Unraid Server": "Container-/VM-basierte Plattform auf Unraid-System.",
+        "Proxmox Host": "Virtualisierungsplattform für HA als VM/Container mit Snapshot-Optionen.",
+        "NAS (Synology/QNAP)": "Betrieb auf NAS-Gerät, häufig via Container-App.",
+        "Home Assistant Green/Yellow": "Dedizierte HA-Hardware mit einfacher Inbetriebnahme.",
+        "VM auf bestehendem Server": "Einbindung in vorhandene Serverlandschaft per virtueller Maschine.",
+    },
+    "HA_OS_OPTIONS": {
+        "Home Assistant OS": "Komplettsystem inkl. Supervisor/Add-ons; einfache Verwaltung.",
+        "Home Assistant Container": "HA als Docker-Container; Add-ons/Updates separat verwalten.",
+        "Home Assistant Supervised": "Linux + Docker + Supervisor; flexibel, aber wartungsintensiver.",
+        "Home Assistant Core": "Reine Python-Installation ohne Supervisor/Add-ons.",
+    },
+    "BACKUP_OPTIONS": {
+        "Keine Strategie": "Es ist aktuell kein belastbares Backup-Konzept vorgesehen.",
+        "Lokales Backup": "Sicherung auf lokalem Datenträger im Hausnetz.",
+        "NAS-Backup": "Zentrale Sicherung auf NAS-System.",
+        "Offsite-Backup": "Zusätzliche Sicherung außerhalb des Standorts.",
+        "3-2-1 Backup-Strategie": "3 Kopien, 2 Medientypen, 1 Kopie extern für hohe Ausfallsicherheit.",
+    },
+    "PROTOCOL_OPTIONS": {
+        "Zigbee": "Mesh-Funkprotokoll für Sensoren/Aktoren mit niedrigem Energiebedarf.",
+        "Z-Wave": "Funkprotokoll im Sub-GHz-Bereich mit guter Gebäudedurchdringung.",
+        "Thread/Matter": "Neuer Standard für herstellerübergreifende Smart-Home-Kompatibilität.",
+        "KNX": "Kabelgebundenes/professionelles Gebäudesystem für robuste Automatisierung.",
+        "Modbus": "Industrienahe Schnittstelle für technische Anlagen und Energiemessung.",
+        "WLAN": "IP-basierte Funkanbindung über bestehendes Wi-Fi-Netz.",
+        "Bluetooth": "Kurzstreckenfunk, meist für einzelne Geräte oder Provisionierung.",
+        "MQTT": "Nachrichtenprotokoll zur Integration verteilter Smart-Home-Komponenten.",
     },
     "CABLE_OPTIONS": {
         "Klassische Verdrahtung": "Konventionelle Elektroinstallation ohne zentrale Smart-Home-Struktur.",
@@ -45,17 +151,33 @@ OPTION_SET_LEGENDS: Dict[str, Dict[str, str]] = {
         "BUS-basierte Verdrahtung": "Steuerung über Bus-System (z. B. KNX), getrennt von Lastkreisen.",
         "Mischform": "Kombination aus klassischer, Stern- und/oder BUS-Verdrahtung.",
     },
-    "GLOBAL_PHASE_OPTIONS": {
-        "Nicht relevant": "Keine besondere Phasenplanung erforderlich.",
-        "3 Phasen sauber verteilt": "Verbraucher werden möglichst gleichmäßig auf L1/L2/L3 verteilt.",
-        "3 Phasen + Lastmanagement vorgesehen": "Zusätzlich zur Verteilung wird aktive Laststeuerung eingeplant.",
-        "Lastmanagement zwingend (WP/Wallbox)": "Pflicht bei großen Lasten wie Wärmepumpe/Wallbox, um Spitzen zu begrenzen.",
+    "ROOM_ROLE_OPTIONS": {
+        "Wohnen": "Fokus auf Komfort, Medien, flexible Szenen und Aufenthaltsqualität.",
+        "Arbeiten": "Fokus auf produktives Licht, stabile Netzverbindung und Ergonomie.",
+        "Schlafen": "Fokus auf Ruhe, einfache Bedienung, Nacht-/Morgenautomationen.",
+        "Kinder": "Fokus auf Sicherheit, einfache Bedienbarkeit und zeitliche Begrenzungen.",
+        "Bad/Wellness": "Fokus auf Feuchtraum-Anforderungen, Komfortlicht und Lüftung.",
+        "Technikraum": "Fokus auf Infrastruktur, Wartungszugang und Monitoring.",
+        "Verkehrsfläche": "Fokus auf Orientierung/Präsenzlicht und kurze Aufenthaltsdauer.",
     },
-    "HA_OS_OPTIONS": {
-        "Home Assistant OS": "Komplettsystem inkl. Supervisor/Add-ons; einfache Verwaltung.",
-        "Home Assistant Container": "HA als Docker-Container; Add-ons/Updates separat verwalten.",
-        "Home Assistant Supervised": "Linux + Docker + Supervisor; flexibel, aber wartungsintensiver.",
-        "Home Assistant Core": "Reine Python-Installation ohne Supervisor/Add-ons.",
+    "COVERAGE_OPTIONS": {
+        "Hoch (Office/Streaming)": "Hohe Bandbreite und stabile Latenz auch bei starker Nutzung.",
+        "Mittel": "Normale Alltagsnutzung mit solider Verbindung.",
+        "Basis": "Grundversorgung für einfache Anwendungen.",
+        "Optional": "Nur bei Bedarf aktiv ausbauen.",
+    },
+    "CAMERA_STORAGE_OPTIONS": {
+        "Keine Kamera": "Es wird keine Videoüberwachung geplant.",
+        "NVR lokal": "Aufzeichnung auf dediziertem lokalen Rekorder.",
+        "NAS-Aufzeichnung": "Kameradaten werden auf NAS gespeichert.",
+        "SD-Karte lokal": "Speicherung direkt in der Kamera auf SD-Karte.",
+        "Hybrid": "Kombination aus lokaler und zentraler Speicherung.",
+    },
+    "AUTOMATION_LEVEL_OPTIONS": {
+        "Keine Automationen": "Nur manuelle Bedienung, keine Regeln/Szenen.",
+        "Basis (Zeit/Schwellwert)": "Einfache Regeln nach Uhrzeit oder Messwerten.",
+        "Mittel (Szenen + Präsenz)": "Kombination aus Szenenlogik und Anwesenheitserkennung.",
+        "Erweitert (Kontext + Energie)": "Umfangreiche Logik mit Kontextdaten und Energieoptimierung.",
     },
 }
 
@@ -138,14 +260,17 @@ class TopicRowWidget(QWidget):
                 self.combos[i].setCurrentText(val)
         self._update_buttons()
 
-
     def _show_info_dialog(self) -> None:
         QMessageBox.information(self, f"Info: {self.definition.title}", self.info_text)
 
     def _build_info_text(self) -> str:
         topic_explainer = TOPIC_HELP_OVERRIDES.get(self.definition.key, self.definition.help_text.strip() or self.definition.description)
         legends = OPTION_SET_LEGENDS.get(self.definition.option_set, {})
-        options_text = "\n".join(f"• {option}: {legends.get(option, 'Auswahloption für dieses Thema.') }" for option in self.options)
+
+        if self.definition.option_set == "YES_MAYBE_NO":
+            return f"Thema: {self.definition.title}\nBedeutung: {topic_explainer}"
+
+        options_text = "\n".join(f"• {option}: {legends.get(option, option)}" for option in self.options)
         return (
             f"Thema: {self.definition.title}\n"
             f"Bedeutung: {topic_explainer}\n\n"
