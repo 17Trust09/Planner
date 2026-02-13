@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import List
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -28,11 +28,27 @@ class TopicRowWidget(QWidget):
         self.state = state
         self.combos: List[QComboBox] = []
 
+        options = OPTION_SETS[self.definition.option_set]
+        self.selection_limit = len(options)
+        self.info_text = self._build_info_text(options)
+
         main = QVBoxLayout(self)
+
+        title_row = QHBoxLayout()
         title = QLabel(f"<b>{definition.title}</b>")
+        title.setToolTip(self.info_text)
+        info = QLabel("ⓘ")
+        info.setToolTip(self.info_text)
+        info.setCursor(Qt.WhatsThisCursor)
+        info.setStyleSheet("color:#1d4ed8; font-weight:700;")
+        title_row.addWidget(title)
+        title_row.addWidget(info)
+        title_row.addStretch()
+        main.addLayout(title_row)
+
         desc = QLabel(definition.description)
-        desc.setStyleSheet("color:#475569;")
-        main.addWidget(title)
+        desc.setStyleSheet("color:#334155;")
+        desc.setToolTip(self.info_text)
         main.addWidget(desc)
 
         top = QGridLayout()
@@ -60,7 +76,7 @@ class TopicRowWidget(QWidget):
         main.addWidget(self.assignee)
         main.addWidget(self.notes)
 
-        initial = max(1, len(state.selections))
+        initial = self.selection_limit
         for _ in range(initial):
             self.add_combo(emit=False)
         for i, val in enumerate(state.selections):
@@ -68,8 +84,20 @@ class TopicRowWidget(QWidget):
                 self.combos[i].setCurrentText(val)
         self._update_buttons()
 
+    def _build_info_text(self, options: List[str]) -> str:
+        details = self.definition.help_text.strip() if self.definition.help_text else ""
+        options_text = "\n".join(f"• {o}" for o in options)
+        base = (
+            f"Thema: {self.definition.title}\n"
+            f"Beschreibung: {self.definition.description}\n\n"
+            f"Mögliche Antworten ({len(options)}):\n{options_text}"
+        )
+        if not details:
+            return base
+        return f"{base}\n\nHinweise:\n{details}"
+
     def add_combo(self, emit: bool = True) -> None:
-        if len(self.combos) >= self.definition.max_selections:
+        if len(self.combos) >= self.selection_limit:
             return
         combo = QComboBox()
         combo.addItem("")
@@ -101,7 +129,7 @@ class TopicRowWidget(QWidget):
         self._emit()
 
     def _update_buttons(self) -> None:
-        self.add_btn.setEnabled(len(self.combos) < self.definition.max_selections)
+        self.add_btn.setEnabled(len(self.combos) < self.selection_limit)
         self.remove_btn.setEnabled(len(self.combos) > 1)
 
     def get_state(self) -> TopicState:

@@ -106,6 +106,7 @@ class TopicDefinition:
     domains: List[str]
     required_for_export: bool = False
     max_selections: int = 3
+    help_text: str = ""
 
 
 GLOBAL_TOPICS: List[TopicDefinition] = [
