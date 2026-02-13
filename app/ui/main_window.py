@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.current_path: Path | None = None
         self.export_thread: QThread | None = None
         self.export_dialog: QProgressDialog | None = None
+        self.export_worker: ExportWorker | None = None
 
         root = QWidget()
         root_layout = QHBoxLayout(root)
@@ -224,32 +225,44 @@ class MainWindow(QMainWindow):
         self._rebuild_for_project()
 
     def _start_export(self, kind: str, target: Path) -> None:
-        self.export_dialog = QProgressDialog("Export läuft...", None, 0, 0, self)
+        self.export_dialog = QProgressDialog("Export startet...", None, 0, 100, self)
         self.export_dialog.setWindowTitle("Bitte warten")
         self.export_dialog.setCancelButton(None)
+        self.export_dialog.setMinimumDuration(0)
+        self.export_dialog.setValue(0)
         self.export_dialog.show()
 
         self.export_thread = QThread()
-        worker = ExportWorker(self.current_project, target, kind)
-        worker.moveToThread(self.export_thread)
-        self.export_thread.started.connect(worker.run)
-        worker.finished.connect(self._on_export_finished)
-        worker.failed.connect(self._on_export_failed)
-        worker.finished.connect(self.export_thread.quit)
-        worker.failed.connect(self.export_thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.failed.connect(worker.deleteLater)
+        self.export_worker = ExportWorker(self.current_project, target, kind)
+        self.export_worker.moveToThread(self.export_thread)
+        self.export_thread.started.connect(self.export_worker.run)
+        self.export_worker.progress.connect(self._on_export_progress)
+        self.export_worker.finished.connect(self._on_export_finished)
+        self.export_worker.failed.connect(self._on_export_failed)
+        self.export_worker.finished.connect(self.export_thread.quit)
+        self.export_worker.failed.connect(self.export_thread.quit)
+        self.export_worker.finished.connect(self.export_worker.deleteLater)
+        self.export_worker.failed.connect(self.export_worker.deleteLater)
         self.export_thread.finished.connect(self.export_thread.deleteLater)
         self.export_thread.start()
 
+
+    def _on_export_progress(self, percent: int, message: str, eta: str) -> None:
+        if self.export_dialog:
+            self.export_dialog.setValue(percent)
+            self.export_dialog.setLabelText(f"{message}\n{percent}% – {eta}")
+
     def _on_export_finished(self, target: str) -> None:
         if self.export_dialog:
+            self.export_dialog.setValue(100)
             self.export_dialog.close()
+        self.export_worker = None
         QMessageBox.information(self, "Export", f"Export erfolgreich: {target}")
 
     def _on_export_failed(self, message: str) -> None:
         if self.export_dialog:
             self.export_dialog.close()
+        self.export_worker = None
         QMessageBox.critical(self, "Exportfehler", message)
 
     def _export_excel(self) -> None:

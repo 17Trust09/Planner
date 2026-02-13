@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -26,13 +27,26 @@ def _table(data, header_color: str):
     return t
 
 
-def export_project_to_pdf(project: Project, target_file: Path) -> None:
+def export_project_to_pdf(
+    project: Project,
+    target_file: Path,
+    on_progress: Callable[[int, str], None] | None = None,
+) -> None:
+    def report(step: int, total: int, message: str) -> None:
+        if on_progress:
+            on_progress(int(step * 100 / total), message)
+
+    room_count = len(project.rooms)
+    total_steps = 4 + room_count
+    step = 0
+
     target_file.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(str(target_file), pagesize=A4)
     styles = getSampleStyleSheet()
     flow = []
+    step += 1
+    report(step, total_steps, "PDF wird vorbereitet")
 
-    # Deckblatt
     flow.append(Paragraph("<b>Smarthome / IT / Elektrik Planungsreport</b>", styles["Title"]))
     flow.append(Paragraph(f"Projekt: {project.metadata.project_name}", styles["Heading2"]))
     flow.append(Paragraph(f"Status: {project.metadata.status} | Version: {project.metadata.version}", styles["Normal"]))
@@ -46,6 +60,8 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
         global_data.append([t.title, ", ".join(s.selections) or DEFAULT_EMPTY, s.assignee or DEFAULT_EMPTY, s.notes or DEFAULT_EMPTY])
     flow.append(_table(global_data, "#1D4ED8"))
     flow.append(Spacer(1, 12))
+    step += 1
+    report(step, total_steps, "Globale Inhalte wurden aufgebaut")
 
     scores = room_score(project)
     conflicts = detect_conflicts_detailed(project)
@@ -69,11 +85,18 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
                 open_points.append(f"{room_name}: {msg}")
         flow.append(Spacer(1, 10))
 
+        step += 1
+        report(step, total_steps, f"Raum '{room_name}' wurde verarbeitet")
+
     flow.append(Paragraph("<b>Offene Punkte (Priorität/Verantwortung nachbearbeiten)</b>", styles["Heading3"]))
     if not open_points:
         flow.append(Paragraph("Keine offenen Konfliktpunkte erkannt.", styles["Normal"]))
     else:
         for item in open_points:
             flow.append(Paragraph(item, styles["Normal"]))
+    step += 1
+    report(step, total_steps, "Offene Punkte wurden zusammengestellt")
 
     doc.build(flow)
+    step += 1
+    report(step, total_steps, "PDF-Datei wird gespeichert")

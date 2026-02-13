@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -50,22 +51,45 @@ def _write_topic_sheet(ws, title: str, topics, topic_values) -> None:
             c.alignment = Alignment(vertical="top", wrap_text=True)
 
 
-def export_project_to_excel(project: Project, target_file: Path) -> None:
+def export_project_to_excel(
+    project: Project,
+    target_file: Path,
+    on_progress: Callable[[int, str], None] | None = None,
+) -> None:
+    def report(step: int, total: int, message: str) -> None:
+        if on_progress:
+            on_progress(int(step * 100 / total), message)
+
+    room_count = len(project.rooms)
+    matrix = build_room_matrix(project)
+    total_steps = 4 + room_count + len(matrix)
+    step = 0
+
     wb = Workbook()
+    step += 1
+    report(step, total_steps, "Excel-Datei wird vorbereitet")
+
     ws_global = wb.active
     _write_topic_sheet(ws_global, "Global_Planung", GLOBAL_TOPICS, project.global_topics)
+    step += 1
+    report(step, total_steps, "Globale Themen werden geschrieben")
 
     for room_name, room in project.rooms.items():
         ws = wb.create_sheet(title=room_name[:31])
         _write_topic_sheet(ws, room_name, ROOM_TOPICS, room.topics)
+        step += 1
+        report(step, total_steps, f"Raumblatt '{room_name}' wird exportiert")
 
     ws_eval = wb.create_sheet("Auswertung_Raumvergleich")
     ws_eval.append(["Topic", *project.rooms.keys(), "Räume mit Auswahl", "Diversity", "Dominanz"])
     for c in ws_eval[1]:
         c.fill = HEADER_FILL
         c.font = Font(color="FFFFFF", bold=True)
-    matrix = build_room_matrix(project)
+
     metrics = topic_metrics(project)
+    step += 1
+    report(step, total_steps, "Auswertung wird berechnet")
+
     row = 2
     for topic, per_room in matrix.items():
         values = [", ".join(per_room[r]) or DEFAULT_EMPTY for r in project.rooms.keys()]
@@ -81,7 +105,13 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
             for col in range(1, ws_eval.max_column + 1):
                 ws_eval.cell(row=row, column=col).fill = ALT_FILL
         row += 1
+        step += 1
+        report(step, total_steps, f"Auswertungsthema '{topic}' verarbeitet")
+
     for i in range(1, ws_eval.max_column + 1):
         ws_eval.column_dimensions[chr(64 + i)].width = 22
+
+    step += 1
+    report(step, total_steps, "Excel-Datei wird gespeichert")
     target_file.parent.mkdir(parents=True, exist_ok=True)
     wb.save(target_file)
