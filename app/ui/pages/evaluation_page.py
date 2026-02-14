@@ -126,6 +126,14 @@ class EvaluationPage(QWidget):
             network_lines.append(f"• Reserve/Uplink pauschal: {net['reserve_uplink_ports']} Ports")
             network_lines.append(f"• Empfehlung inkl. Reserve/Uplink: {net['ports_with_overhead']} Ports")
             network_lines.append(f"• Empfohlene Switch-Größe: {net['recommended_switch']}")
+            if net["split_recommended"]:
+                network_lines.append("• Hinweis: Wegen hoher Port-/PoE-Last wird ein Switch-Split empfohlen.")
+                network_lines.append(
+                    f"  - PoE-Switch: {net['split_plan']['poe_switch']} ({net['split_plan']['poe_ports']} Ports inkl. Reserve)"
+                )
+                network_lines.append(
+                    f"  - Non-PoE-Switch: {net['split_plan']['client_switch']} ({net['split_plan']['client_ports']} Ports inkl. Reserve)"
+                )
         self.network_view.setPlainText("\n".join(network_lines))
 
         score_lines = ["Raum-Ampeln:"]
@@ -148,6 +156,10 @@ class EvaluationPage(QWidget):
         self.conflicts_view.setPlainText("\n".join(conflict_lines))
 
         cost_lines = ["Kostenschätzung (Richtwerte):"]
+        if pricing["switch_split_active"]:
+            cost_lines.append("• Switch-Strategie: Split aktiv (PoE + Non-PoE)")
+        else:
+            cost_lines.append("• Switch-Strategie: Einzelswitch")
         if not pricing["line_items"]:
             cost_lines.append("• Noch keine relevanten Komponenten ausgewählt.")
         else:

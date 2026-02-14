@@ -30,6 +30,7 @@ from app.services.export_pdf import export_project_to_pdf
 from app.services.storage import PROJECTS_DIR, list_projects, load_project, save_project
 from app.services.validation import MissingRequiredField, required_field_entries
 from app.ui.pages.evaluation_page import EvaluationPage
+from app.ui.pages.pricing_page import PricingPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
 
@@ -172,6 +173,9 @@ class MainWindow(QMainWindow):
         global_item = QTreeWidgetItem(["Global"])
         global_item.setData(0, Qt.UserRole, "global")
         overview.addChild(global_item)
+        pricing_item = QTreeWidgetItem(["Preise"])
+        pricing_item.setData(0, Qt.UserRole, "pricing")
+        overview.addChild(pricing_item)
         evaluation_item = QTreeWidgetItem(["Auswertung"])
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
@@ -206,6 +210,10 @@ class MainWindow(QMainWindow):
         self.outdoor_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.outdoor_page)
 
+        self.pricing_page = PricingPage(self.current_project)
+        self.pricing_page.changed.connect(self._on_project_changed)
+        self.stack.addWidget(self.pricing_page)
+
         self.stack.addWidget(self.eval_page)
         for room_name in self.current_project.rooms.keys():
             page = TopicPage(room_name, ROOM_TOPICS, self.current_project.rooms[room_name].topics)
@@ -227,7 +235,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Hilfe: Navigation",
-            "Projektübersicht enthält Start, Global und Auswertung.\n"
+            "Projektübersicht enthält Start, Global, Preise und Auswertung.\n"
             "Unter 'Räume nach Etage' findest du Außenbereich und alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
@@ -283,6 +291,9 @@ class MainWindow(QMainWindow):
         if key == "outdoor":
             self.stack.setCurrentWidget(self.outdoor_page)
             return
+        if key == "pricing":
+            self.stack.setCurrentWidget(self.pricing_page)
+            return
         if key == "evaluation":
             self._persist_all_pages()
             self.eval_page.refresh(self.current_project)
@@ -313,6 +324,7 @@ class MainWindow(QMainWindow):
     def _persist_all_pages(self) -> None:
         self.global_page.persist()
         self.outdoor_page.persist()
+        self.pricing_page.persist()
         for page in self.room_pages.values():
             page.persist()
 

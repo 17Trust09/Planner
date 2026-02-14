@@ -122,6 +122,22 @@ def _parse_count(selection: str) -> int:
     return 0
 
 
+
+
+def _switch_size_for_ports(port_count: int) -> str:
+    if port_count <= 0:
+        return "Kein zusätzlicher Switch"
+    if port_count <= 8:
+        return "8 Ports"
+    if port_count <= 16:
+        return "16 Ports"
+    if port_count <= 24:
+        return "24 Ports"
+    if port_count <= 48:
+        return "48 Ports"
+    return "Mehrere Switches oder 48+ Ports"
+
+
 def network_rollup(project: Project) -> dict:
     client_ports_by_room: Dict[str, int] = {}
     ap_count_by_room: Dict[str, int] = {}
@@ -151,16 +167,19 @@ def network_rollup(project: Project) -> dict:
     reserve_uplink_ports = 3 if total_cables else 0
     planned_with_overhead = total_cables + reserve_uplink_ports
 
-    if planned_with_overhead <= 8:
-        switch = "8 Ports"
-    elif planned_with_overhead <= 16:
-        switch = "16 Ports"
-    elif planned_with_overhead <= 24:
-        switch = "24 Ports"
-    elif planned_with_overhead <= 48:
-        switch = "48 Ports"
-    else:
-        switch = "Mehrere Switches oder 48+ Ports"
+    switch = _switch_size_for_ports(planned_with_overhead)
+
+    poe_ratio = (outdoor_poe_devices + total_ap_count) / total_cables if total_cables else 0.0
+    split_recommended = planned_with_overhead > 48 or (planned_with_overhead > 24 and poe_ratio >= 0.4)
+
+    poe_ports_with_reserve = (outdoor_poe_devices + total_ap_count) + (1 if (outdoor_poe_devices + total_ap_count) else 0)
+    client_ports_with_reserve = total_client_ports + (2 if total_client_ports else 0)
+    split_plan = {
+        "poe_ports": poe_ports_with_reserve,
+        "poe_switch": _switch_size_for_ports(poe_ports_with_reserve),
+        "client_ports": client_ports_with_reserve,
+        "client_switch": _switch_size_for_ports(client_ports_with_reserve),
+    }
 
     return {
         "client_ports_by_room": client_ports_by_room,
@@ -176,4 +195,7 @@ def network_rollup(project: Project) -> dict:
         "reserve_uplink_ports": reserve_uplink_ports,
         "ports_with_overhead": planned_with_overhead,
         "recommended_switch": switch,
+        "poe_ratio": round(poe_ratio, 2),
+        "split_recommended": split_recommended,
+        "split_plan": split_plan,
     }
