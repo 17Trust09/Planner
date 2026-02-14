@@ -8,6 +8,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, topic_metrics
+from app.services.pricing import estimate_project_costs
 
 HEADER_FILL = PatternFill("solid", fgColor="1D4ED8")
 SECTION_FILL = PatternFill("solid", fgColor="E2E8F0")
@@ -80,5 +81,40 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
         row += 1
     for i in range(1, ws_eval.max_column + 1):
         ws_eval.column_dimensions[chr(64 + i)].width = 22
+
+
+    ws_cost = wb.create_sheet("Kostenübersicht")
+    ws_cost.append(["Kategorie", "Beschreibung", "Menge", "Min (€)", "Typisch (€)", "Max (€)"])
+    for c in ws_cost[1]:
+        c.fill = HEADER_FILL
+        c.font = Font(color="FFFFFF", bold=True)
+
+    pricing = estimate_project_costs(project)
+    row = 2
+    for item in pricing["line_items"]:
+        ws_cost.append([
+            item["category"],
+            item["description"],
+            item["quantity"],
+            item["cost"]["min"],
+            item["cost"]["typical"],
+            item["cost"]["max"],
+        ])
+        if row % 2 == 0:
+            for col in range(1, 7):
+                ws_cost.cell(row=row, column=col).fill = ALT_FILL
+        row += 1
+
+    totals = pricing["totals"]
+    ws_cost.append(["", "", "", "", "", ""])
+    ws_cost.append(["GESAMT", "", "", totals["min"], totals["typical"], totals["max"]])
+    for col, width in zip("ABCDEF", [24, 50, 10, 14, 14, 14]):
+        ws_cost.column_dimensions[col].width = width
+
+    ws_cost.append(["", "", "", "", "", ""])
+    ws_cost.append(["Annahmen", "", "", "", "", ""])
+    for note in pricing["assumptions"]:
+        ws_cost.append([f"• {note}", "", "", "", "", ""])
+
     target_file.parent.mkdir(parents=True, exist_ok=True)
     wb.save(target_file)

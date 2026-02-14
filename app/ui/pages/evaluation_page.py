@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from app.models.definitions import OUTDOOR_AREA_NAME
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, network_rollup, room_score, topic_metrics
+from app.services.pricing import estimate_project_costs
 from app.services.validation import detect_conflicts
 
 
@@ -47,18 +48,21 @@ class EvaluationPage(QWidget):
         self.score_view.setReadOnly(True)
         self.conflicts_view = QTextEdit()
         self.conflicts_view.setReadOnly(True)
+        self.cost_view = QTextEdit()
+        self.cost_view.setReadOnly(True)
 
         self.detail_tabs.addTab(self.metrics_view, "Kennzahlen")
         self.detail_tabs.addTab(self.network_view, "Netzwerk")
         self.detail_tabs.addTab(self.score_view, "Raum-Ampeln")
         self.detail_tabs.addTab(self.conflicts_view, "Konflikte")
+        self.detail_tabs.addTab(self.cost_view, "Kosten")
         self.layout.addWidget(self.detail_tabs, 1)
 
     def _show_help(self) -> None:
         QMessageBox.information(
             self,
             "Hilfe: Auswertung",
-            "Die Auswertung ist in Tabs gegliedert: Kennzahlen, Netzwerk, Raum-Ampeln und Konflikte.\n"
+            "Die Auswertung ist in Tabs gegliedert: Kennzahlen, Netzwerk, Raum-Ampeln, Konflikte und Kosten.\n"
             "So sind die Infos übersichtlicher und leichter zu lesen.",
         )
 
@@ -80,6 +84,7 @@ class EvaluationPage(QWidget):
         scores = room_score(project)
         conflicts = detect_conflicts(project)
         net = network_rollup(project)
+        pricing = estimate_project_costs(project)
 
         metric_lines = ["Themen-Metriken:"]
         for topic, m in metrics.items():
@@ -141,3 +146,25 @@ class EvaluationPage(QWidget):
                 for item in items:
                     conflict_lines.append(f"• {item}")
         self.conflicts_view.setPlainText("\n".join(conflict_lines))
+
+        cost_lines = ["Kostenschätzung (Richtwerte):"]
+        if not pricing["line_items"]:
+            cost_lines.append("• Noch keine relevanten Komponenten ausgewählt.")
+        else:
+            for item in pricing["line_items"]:
+                c = item["cost"]
+                cost_lines.append(
+                    f"• {item['category']} ({item['quantity']}x): {item['description']} | "
+                    f"{c['min']:.0f}€ / {c['typical']:.0f}€ / {c['max']:.0f}€ (min/typ/max)"
+                )
+
+            t = pricing["totals"]
+            cost_lines.append("\nGesamt:")
+            cost_lines.append(f"• Min: {t['min']:.0f}€")
+            cost_lines.append(f"• Typisch: {t['typical']:.0f}€")
+            cost_lines.append(f"• Max: {t['max']:.0f}€")
+
+        cost_lines.append("\nAnnahmen:")
+        for assumption in pricing["assumptions"]:
+            cost_lines.append(f"• {assumption}")
+        self.cost_view.setPlainText("\n".join(cost_lines))
