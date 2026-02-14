@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QMainWindow,
+    QSplitter,
     QMessageBox,
     QPushButton,
     QStackedWidget,
@@ -76,8 +77,18 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         content_layout.addWidget(self.stack)
 
-        root_layout.addWidget(sidebar, 1)
-        root_layout.addWidget(self.content_panel, 5)
+        sidebar.setMinimumWidth(220)
+        self.content_panel.setMinimumWidth(420)
+
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.addWidget(sidebar)
+        self.main_splitter.addWidget(self.content_panel)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setSizes([320, 1180])
+
+        root_layout.addWidget(self.main_splitter)
         self.setCentralWidget(root)
 
         self.start_page = StartPage()

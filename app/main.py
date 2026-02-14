@@ -199,6 +199,21 @@ def main() -> int:
             background: transparent;
         }
 
+        QSplitter::handle {
+            background: #1f2937;
+            border-radius: 2px;
+        }
+
+        QSplitter::handle:horizontal {
+            width: 8px;
+            margin: 8px 2px;
+        }
+
+        QSplitter::handle:hover {
+            background: #3b82f6;
+        }
+
+
         QMessageBox {
             background: #0f172a;
         }
