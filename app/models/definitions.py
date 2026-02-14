@@ -9,6 +9,8 @@ FLOORS: Dict[str, List[str]] = {
     "OG": ["Kinderzimmer 1", "Kinderzimmer 2", "Flur OG", "Ankleide", "Schlafzimmer", "Bad"],
 }
 
+OUTDOOR_AREA_NAME = "Außenbereich"
+
 DOMAIN_SMART = "SMART_HOME"
 DOMAIN_ELEC = "ELEKTRIK"
 DOMAIN_IT = "IT_NETZWERK"
@@ -105,6 +107,10 @@ OPTION_SETS: Dict[str, List[str]] = {
     "AP_PLAN_OPTIONS": [
         "0 AP", "1 AP", "2 AP", "3 AP", "4 AP",
     ],
+    "OUTDOOR_DEVICE_COUNT_OPTIONS": ["0", "1", "2", "3", "4", "5", "6", "7", "8"],
+    "OUTDOOR_SMART_OPTIONS": [
+        "Temperatursensor", "Luftfeuchtesensor", "Helligkeitssensor", "Bewegungsmelder außen", "Wetterstation", "Smarter Gartenaktor",
+    ],
 }
 
 
@@ -177,6 +183,13 @@ ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_sensor_general", "AUTOMATIONEN", "Sensorik allgemein", "Automationssensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
     TopicDefinition("room_shade", "AUTOMATIONEN", "Beschattung", "Beschattungslogik", "SHADE_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
     TopicDefinition("room_scenes", "AUTOMATIONEN", "Szenenbedarf", "Szenen wie Abend/Abwesend/Urlaub", "YES_MAYBE_NO", [DOMAIN_SMART], True),
+]
+
+OUTDOOR_TOPICS: List[TopicDefinition] = [
+    TopicDefinition("outdoor_camera_count", "SICHERHEIT AUSSEN", "Außenkameras (PoE)", "Wie viele Außenkameras werden geplant", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 1),
+    TopicDefinition("outdoor_doorbell_count", "SICHERHEIT AUSSEN", "Smarte Türklingel (PoE)", "Wie viele smarte Türklingeln werden geplant", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 1),
+    TopicDefinition("outdoor_smart_sensors", "SMART HOME AUSSEN", "Outdoor-Sensorik", "Welche Sensoren werden im Außenbereich eingesetzt", "OUTDOOR_SMART_OPTIONS", [DOMAIN_SMART], False, 6),
+    TopicDefinition("outdoor_access_points", "NETZWERK AUSSEN", "Outdoor Access Points", "Wie viele Outdoor-APs werden über PoE angeschlossen", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT], False, 1),
 ]
 
 

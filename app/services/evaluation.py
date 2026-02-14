@@ -61,45 +61,62 @@ def room_score(project: Project) -> Dict[str, dict]:
     return scores
 
 
+def _parse_count(selection: str) -> int:
+    selection = selection.strip()
+    if selection.isdigit():
+        return int(selection)
+
+    mapping = {
+        "Keine LAN-Ports": 0,
+        "6+ Ports": 6,
+        "0 AP": 0,
+        "1 AP": 1,
+        "2 AP": 2,
+        "3 AP": 3,
+        "4 AP": 4,
+        "Kein AP im Raum": 0,
+        "AP im Raum": 1,
+        "AP in Flur/nahe Raum": 1,
+        "Optional bei Bedarf": 0,
+        "Meshing statt Kabel-AP": 0,
+    }
+    if selection in mapping:
+        return mapping[selection]
+
+    for n in range(1, 11):
+        if selection in {f"{n} Port", f"{n} Ports"}:
+            return n
+    return 0
+
+
 def network_rollup(project: Project) -> dict:
     client_ports_by_room: Dict[str, int] = {}
     ap_count_by_room: Dict[str, int] = {}
-
-    lan_map = {"Keine LAN-Ports": 0, "6+ Ports": 6}
-    for amount in range(1, 11):
-        lan_map[f"{amount} Port"] = amount
-        lan_map[f"{amount} Ports"] = amount
-
-    ap_map = {
-        "0 AP": 0, "1 AP": 1, "2 AP": 2, "3 AP": 3, "4 AP": 4,
-        "Kein AP im Raum": 0, "AP im Raum": 1, "AP in Flur/nahe Raum": 1, "Optional bei Bedarf": 0, "Meshing statt Kabel-AP": 0,
-    }
 
     for room_name, room in project.rooms.items():
         lan_selections = room.topics.get("room_lan_ports").selections if room.topics.get("room_lan_ports") else []
         ap_selections = room.topics.get("room_access_point").selections if room.topics.get("room_access_point") else []
 
-        client_ports = 0
-        for selection in lan_selections:
-            if selection in lan_map:
-                client_ports = max(client_ports, lan_map[selection])
-
-        ap_count = 0
-        for selection in ap_selections:
-            if selection in ap_map:
-                ap_count = max(ap_count, ap_map[selection])
+        client_ports = max((_parse_count(s) for s in lan_selections), default=0)
+        ap_count = max((_parse_count(s) for s in ap_selections), default=0)
 
         if client_ports > 0:
             client_ports_by_room[room_name] = client_ports
         if ap_count > 0:
             ap_count_by_room[room_name] = ap_count
 
+    outdoor_camera = max((_parse_count(s) for s in project.outdoor_topics["outdoor_camera_count"].selections), default=0)
+    outdoor_doorbell = max((_parse_count(s) for s in project.outdoor_topics["outdoor_doorbell_count"].selections), default=0)
+    outdoor_ap = max((_parse_count(s) for s in project.outdoor_topics["outdoor_access_points"].selections), default=0)
+
     total_client_ports = sum(client_ports_by_room.values())
     total_ap_count = sum(ap_count_by_room.values())
-    total_ap_poe_cables = total_ap_count
+    outdoor_poe_devices = outdoor_camera + outdoor_doorbell + outdoor_ap
+    total_ap_poe_cables = total_ap_count + outdoor_poe_devices
     total_cables = total_client_ports + total_ap_poe_cables
 
-    planned_with_overhead = ceil(total_cables * 1.2) + 2 if total_cables else 0
+    reserve_uplink_ports = 3 if total_cables else 0
+    planned_with_overhead = total_cables + reserve_uplink_ports
 
     if planned_with_overhead <= 8:
         switch = "8 Ports"
@@ -115,10 +132,15 @@ def network_rollup(project: Project) -> dict:
     return {
         "client_ports_by_room": client_ports_by_room,
         "ap_count_by_room": ap_count_by_room,
+        "outdoor_camera_count": outdoor_camera,
+        "outdoor_doorbell_count": outdoor_doorbell,
+        "outdoor_ap_count": outdoor_ap,
+        "outdoor_poe_devices": outdoor_poe_devices,
         "total_client_ports": total_client_ports,
         "total_ap_count": total_ap_count,
         "total_ap_poe_cables": total_ap_poe_cables,
         "total_cables": total_cables,
+        "reserve_uplink_ports": reserve_uplink_ports,
         "ports_with_overhead": planned_with_overhead,
         "recommended_switch": switch,
     }

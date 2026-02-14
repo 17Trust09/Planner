@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.models.definitions import FLOORS, GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import FLOORS, GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project, create_empty_project
 from app.services.export_excel import export_project_to_excel
 from app.services.export_pdf import export_project_to_pdf
@@ -47,7 +47,12 @@ class MissingFieldsDialog(QDialog):
 
         self.list_widget = QListWidget()
         for item in missing:
-            text = f"Global: {item.topic_title}" if item.scope == "global" else f"Raum {item.room_name}: {item.topic_title}"
+            if item.scope == "global":
+                text = f"Global: {item.topic_title}"
+            elif item.scope == "outdoor":
+                text = f"{OUTDOOR_AREA_NAME}: {item.topic_title}"
+            else:
+                text = f"Raum {item.room_name}: {item.topic_title}"
             entry = QListWidgetItem(text)
             entry.setData(Qt.UserRole, item)
             self.list_widget.addItem(entry)
@@ -148,7 +153,6 @@ class MainWindow(QMainWindow):
         self.start_page = StartPage()
         self.start_page.load_requested.connect(self._load_from_start)
         self.eval_page = EvaluationPage()
-
         self.room_pages: dict[str, TopicPage] = {}
 
         self._build_navigation()
@@ -168,6 +172,9 @@ class MainWindow(QMainWindow):
         global_item = QTreeWidgetItem(["Global"])
         global_item.setData(0, Qt.UserRole, "global")
         overview.addChild(global_item)
+        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
+        outdoor_item.setData(0, Qt.UserRole, "outdoor")
+        overview.addChild(outdoor_item)
         evaluation_item = QTreeWidgetItem(["Auswertung"])
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
@@ -193,6 +200,11 @@ class MainWindow(QMainWindow):
         self.global_page = TopicPage("Global_Planung", GLOBAL_TOPICS, self.current_project.global_topics)
         self.global_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.global_page)
+
+        self.outdoor_page = TopicPage(OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, self.current_project.outdoor_topics)
+        self.outdoor_page.changed.connect(self._on_project_changed)
+        self.stack.addWidget(self.outdoor_page)
+
         self.stack.addWidget(self.eval_page)
         for room_name in self.current_project.rooms.keys():
             page = TopicPage(room_name, ROOM_TOPICS, self.current_project.rooms[room_name].topics)
@@ -214,13 +226,14 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Hilfe: Navigation",
-            "Projektübersicht enthält Start, globale Einstellungen und Auswertung.\n"
-            "Unter 'Räume nach Etage' findest du alle Räume logisch nach EG/OG gruppiert.\n"
+            "Projektübersicht enthält Start, Global, Außenbereich und Auswertung.\n"
+            "Unter 'Räume nach Etage' findest du alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
 
     def _clear_missing_marks(self) -> None:
         self.global_page.clear_all_missing()
+        self.outdoor_page.clear_all_missing()
         for page in self.room_pages.values():
             page.clear_all_missing()
 
@@ -229,6 +242,8 @@ class MainWindow(QMainWindow):
         for field in missing:
             if field.scope == "global":
                 self.global_page.mark_missing(field.topic_key, True)
+            elif field.scope == "outdoor":
+                self.outdoor_page.mark_missing(field.topic_key, True)
             elif field.room_name and field.room_name in self.room_pages:
                 self.room_pages[field.room_name].mark_missing(field.topic_key, True)
 
@@ -244,6 +259,9 @@ class MainWindow(QMainWindow):
             if field.scope == "global":
                 self.stack.setCurrentWidget(self.global_page)
                 self.global_page.focus_topic(field.topic_key)
+            elif field.scope == "outdoor":
+                self.stack.setCurrentWidget(self.outdoor_page)
+                self.outdoor_page.focus_topic(field.topic_key)
             elif field.room_name and field.room_name in self.room_pages:
                 page = self.room_pages[field.room_name]
                 self.stack.setCurrentWidget(page)
@@ -260,6 +278,9 @@ class MainWindow(QMainWindow):
             return
         if key == "global":
             self.stack.setCurrentWidget(self.global_page)
+            return
+        if key == "outdoor":
+            self.stack.setCurrentWidget(self.outdoor_page)
             return
         if key == "evaluation":
             self._persist_all_pages()
@@ -290,6 +311,7 @@ class MainWindow(QMainWindow):
 
     def _persist_all_pages(self) -> None:
         self.global_page.persist()
+        self.outdoor_page.persist()
         for page in self.room_pages.values():
             page.persist()
 

@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Dict, List
 
-from app.models.definitions import FLOORS, GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import FLOORS, GLOBAL_TOPICS, OUTDOOR_TOPICS, OUTDOOR_AREA_NAME, ROOM_TOPICS
 
 
 @dataclass
@@ -34,6 +34,7 @@ class ProjectMetadata:
 class Project:
     metadata: ProjectMetadata
     global_topics: Dict[str, TopicState]
+    outdoor_topics: Dict[str, TopicState]
     rooms: Dict[str, RoomData]
 
     def touch(self) -> None:
@@ -49,6 +50,9 @@ class Project:
         raw_global_topics = {k: TopicState(**v) for k, v in data.get("global_topics", {}).items()}
         global_topics = {topic.key: raw_global_topics.get(topic.key, TopicState()) for topic in GLOBAL_TOPICS}
 
+        raw_outdoor_topics = {k: TopicState(**v) for k, v in data.get("outdoor_topics", {}).items()}
+        outdoor_topics = {topic.key: raw_outdoor_topics.get(topic.key, TopicState()) for topic in OUTDOOR_TOPICS}
+
         rooms: Dict[str, RoomData] = {}
         for floor, room_names in FLOORS.items():
             for room_name in room_names:
@@ -57,11 +61,19 @@ class Project:
                 topics = {topic.key: raw_topics.get(topic.key, TopicState()) for topic in ROOM_TOPICS}
                 rooms[room_name] = RoomData(name=room_name, floor=floor, topics=topics)
 
-        return Project(metadata=metadata, global_topics=global_topics, rooms=rooms)
+        # Fallback für ältere Projekte, die Außenbereich evtl. in rooms abgelegt haben.
+        outdoor_room_legacy = data.get("rooms", {}).get(OUTDOOR_AREA_NAME)
+        if outdoor_room_legacy and not data.get("outdoor_topics"):
+            legacy_topics = {k: TopicState(**v) for k, v in outdoor_room_legacy.get("topics", {}).items()}
+            for topic in OUTDOOR_TOPICS:
+                outdoor_topics[topic.key] = legacy_topics.get(topic.key, outdoor_topics[topic.key])
+
+        return Project(metadata=metadata, global_topics=global_topics, outdoor_topics=outdoor_topics, rooms=rooms)
 
 
 def create_empty_project(name: str) -> Project:
     global_topics = {topic.key: TopicState() for topic in GLOBAL_TOPICS}
+    outdoor_topics = {topic.key: TopicState() for topic in OUTDOOR_TOPICS}
     rooms: Dict[str, RoomData] = {}
     for floor, room_names in FLOORS.items():
         for room_name in room_names:
@@ -70,4 +82,4 @@ def create_empty_project(name: str) -> Project:
                 floor=floor,
                 topics={topic.key: TopicState() for topic in ROOM_TOPICS},
             )
-    return Project(metadata=ProjectMetadata(project_name=name), global_topics=global_topics, rooms=rooms)
+    return Project(metadata=ProjectMetadata(project_name=name), global_topics=global_topics, outdoor_topics=outdoor_topics, rooms=rooms)

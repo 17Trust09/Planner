@@ -89,7 +89,7 @@ class EvaluationPage(QWidget):
         self.metrics_view.setPlainText("\n".join(metric_lines))
 
         network_lines = ["Netzwerk-Gesamtsumme:"]
-        if not net["client_ports_by_room"] and not net["ap_count_by_room"]:
+        if not net["client_ports_by_room"] and not net["ap_count_by_room"] and net["outdoor_poe_devices"] == 0:
             network_lines.append("• Noch keine LAN-/AP-Angaben je Raum erfasst.")
         else:
             network_lines.append("\nLAN-Dosen / Client-Kabel je Raum:")
@@ -106,11 +106,18 @@ class EvaluationPage(QWidget):
                 for room, amount in net["ap_count_by_room"].items():
                     network_lines.append(f"• {room}: {amount} AP(s)")
 
+            network_lines.append("\nAußenbereich (PoE):")
+            network_lines.append(f"• Außenkameras: {net['outdoor_camera_count']}")
+            network_lines.append(f"• Smarte Türklingeln: {net['outdoor_doorbell_count']}")
+            network_lines.append(f"• Outdoor-APs: {net['outdoor_ap_count']}")
+            network_lines.append(f"• PoE-Geräte außen gesamt: {net['outdoor_poe_devices']}")
+
             network_lines.append("\nSummen:")
             network_lines.append(f"• LAN-Dosen/Client-Kabel: {net['total_client_ports']}")
-            network_lines.append(f"• APs: {net['total_ap_count']}")
-            network_lines.append(f"• AP-PoE-Kabel: {net['total_ap_poe_cables']}")
-            network_lines.append(f"• Gesamtkabel (Dosen + AP): {net['total_cables']}")
+            network_lines.append(f"• APs innen: {net['total_ap_count']}")
+            network_lines.append(f"• AP/PoE-Kabel gesamt (innen + außen): {net['total_ap_poe_cables']}")
+            network_lines.append(f"• Gesamtkabel (Dosen + PoE): {net['total_cables']}")
+            network_lines.append(f"• Reserve/Uplink pauschal: {net['reserve_uplink_ports']} Ports")
             network_lines.append(f"• Empfehlung inkl. Reserve/Uplink: {net['ports_with_overhead']} Ports")
             network_lines.append(f"• Empfohlene Switch-Größe: {net['recommended_switch']}")
         self.network_view.setPlainText("\n".join(network_lines))

@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
-from app.models.definitions import GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 
 
 @dataclass(frozen=True)
 class MissingRequiredField:
-    scope: str  # "global" oder "room"
+    scope: str  # "global", "outdoor" oder "room"
     room_name: str | None
     topic_key: str
     topic_title: str
@@ -20,6 +20,10 @@ def required_field_entries(project: Project) -> List[MissingRequiredField]:
     for topic in GLOBAL_TOPICS:
         if topic.required_for_export and not project.global_topics[topic.key].selections:
             missing.append(MissingRequiredField("global", None, topic.key, topic.title))
+
+    for topic in OUTDOOR_TOPICS:
+        if topic.required_for_export and not project.outdoor_topics[topic.key].selections:
+            missing.append(MissingRequiredField("outdoor", "Außenbereich", topic.key, topic.title))
 
     for room_name, room in project.rooms.items():
         for topic in ROOM_TOPICS:
@@ -34,6 +38,8 @@ def validate_required_fields(project: Project) -> List[str]:
     for missing in required_field_entries(project):
         if missing.scope == "global":
             errors.append(f"Global: '{missing.topic_title}' ist Pflichtfeld.")
+        elif missing.scope == "outdoor":
+            errors.append(f"Außenbereich: '{missing.topic_title}' ist Pflichtfeld.")
         else:
             errors.append(f"Raum {missing.room_name}: '{missing.topic_title}' ist Pflichtfeld.")
     return errors
