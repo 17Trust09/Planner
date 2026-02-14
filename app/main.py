@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from app.services.storage import ensure_storage
@@ -13,26 +14,65 @@ from app.ui.main_window import MainWindow
 SPLASH_MIN_SECONDS = 8.0
 
 
+def _load_logo_pixmap() -> QPixmap | None:
+    candidates = [
+        Path("data/logo.png"),
+        Path("data/logo.jpg"),
+        Path("app/assets/logo.png"),
+        Path("app/assets/splash_logo.png"),
+    ]
+    for logo_path in candidates:
+        if logo_path.exists():
+            pixmap = QPixmap(str(logo_path))
+            if not pixmap.isNull():
+                return pixmap
+    return None
+
+
 def _create_splash() -> QSplashScreen:
-    pixmap = QPixmap(760, 420)
-    pixmap.fill(QColor("#0B1220"))
+    pixmap = QPixmap(900, 520)
+    pixmap.fill(QColor("#081125"))
 
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
 
-    painter.fillRect(30, 30, 700, 360, QColor("#111827"))
+    bg_gradient = QLinearGradient(0, 0, 900, 520)
+    bg_gradient.setColorAt(0.0, QColor("#071226"))
+    bg_gradient.setColorAt(0.5, QColor("#0b1d39"))
+    bg_gradient.setColorAt(1.0, QColor("#0c2b54"))
+    painter.fillRect(0, 0, 900, 520, bg_gradient)
 
-    painter.setPen(QColor("#60A5FA"))
-    painter.setFont(QFont("Arial", 26, QFont.Bold))
-    painter.drawText(0, 160, 760, 44, Qt.AlignCenter, "Hi, willkommen")
+    painter.setPen(QColor("#2A3A57"))
+    painter.drawRoundedRect(30, 30, 840, 460, 18, 18)
 
-    painter.setPen(QColor("#E5E7EB"))
-    painter.setFont(QFont("Arial", 22, QFont.Bold))
-    painter.drawText(0, 206, 760, 44, Qt.AlignCenter, "zu Tims Homeplanung")
+    logo_pixmap = _load_logo_pixmap()
+    if logo_pixmap is not None:
+        scaled = logo_pixmap.scaled(420, 220, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        x = (900 - scaled.width()) // 2
+        painter.drawPixmap(x, 80, scaled)
+    else:
+        title_gradient = QLinearGradient(240, 120, 660, 220)
+        title_gradient.setColorAt(0.0, QColor("#d6f4ff"))
+        title_gradient.setColorAt(0.5, QColor("#81dcff"))
+        title_gradient.setColorAt(1.0, QColor("#39b4ff"))
+        painter.setPen(QColor("#bfefff"))
+        painter.setFont(QFont("Arial", 26, QFont.Bold))
+        painter.drawText(0, 130, 900, 40, Qt.AlignCenter, "TIM HÖLZER")
+        painter.setPen(QColor("#61ceff"))
+        painter.setFont(QFont("Arial", 56, QFont.Black))
+        painter.drawText(0, 160, 900, 90, Qt.AlignCenter, "ICEKEY")
 
-    painter.setPen(QColor("#94A3B8"))
+    painter.setPen(QColor("#E2F3FF"))
+    painter.setFont(QFont("Arial", 24, QFont.Bold))
+    painter.drawText(0, 320, 900, 42, Qt.AlignCenter, "Hi, willkommen zu Tims Homeplanung")
+
+    painter.setPen(QColor("#9DC2E2"))
+    painter.setFont(QFont("Arial", 15, QFont.DemiBold))
+    painter.drawText(0, 364, 900, 34, Qt.AlignCenter, "Ein Projekt von Tim Hölzer")
+
+    painter.setPen(QColor("#89A9C7"))
     painter.setFont(QFont("Arial", 12))
-    painter.drawText(0, 260, 760, 28, Qt.AlignCenter, "App wird gestartet …")
+    painter.drawText(0, 408, 900, 28, Qt.AlignCenter, "Lege optional dein eigenes Logo unter data/logo.png ab.")
     painter.end()
 
     splash = QSplashScreen(pixmap)
