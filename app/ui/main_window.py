@@ -57,11 +57,14 @@ class MainWindow(QMainWindow):
         self.nav = QTreeWidget()
         self.nav.setHeaderHidden(True)
         self.nav.setObjectName("navTree")
+        self.btn_nav_help = QPushButton("Navigation ?")
+        self.btn_nav_help.setObjectName("secondaryButton")
 
         for button in [self.btn_new, self.btn_save, self.btn_save_as, self.btn_export_xlsx, self.btn_export_pdf, self.btn_status]:
             button.setObjectName("primaryButton")
             nav_layout.addWidget(button)
 
+        nav_layout.addWidget(self.btn_nav_help)
         nav_layout.addWidget(self.nav, 1)
 
         self.content_panel = QFrame()
@@ -141,6 +144,17 @@ class MainWindow(QMainWindow):
         self.btn_export_xlsx.clicked.connect(self._export_excel)
         self.btn_export_pdf.clicked.connect(self._export_pdf)
         self.btn_status.clicked.connect(self._cycle_status)
+        self.btn_nav_help.clicked.connect(self._show_nav_help)
+
+
+    def _show_nav_help(self) -> None:
+        QMessageBox.information(
+            self,
+            "Hilfe: Navigation",
+            "Projektübersicht enthält Start, globale Einstellungen und Auswertung.\n"
+            "Unter 'Räume nach Etage' findest du alle Räume logisch nach EG/OG gruppiert.\n"
+            "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
+        )
 
     def _navigate(self, item: QTreeWidgetItem | None, _: QTreeWidgetItem | None = None) -> None:
         if item is None:

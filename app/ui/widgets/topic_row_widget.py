@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -34,10 +35,20 @@ class TopicRowWidget(QWidget):
         main.setSpacing(8)
         main.setContentsMargins(10, 8, 10, 8)
 
+        head = QHBoxLayout()
         title = QLabel(f"<b>{definition.title}</b>")
+        self.help_btn = QPushButton("?")
+        self.help_btn.setObjectName("helpButton")
+        self.help_btn.setFixedWidth(28)
+        self.help_btn.clicked.connect(self._show_help)
+        head.addWidget(title)
+        head.addStretch()
+        head.addWidget(self.help_btn)
+        main.addLayout(head)
+
         desc = QLabel(definition.description)
-        desc.setStyleSheet("color:#475569;")
-        main.addWidget(title)
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color:#94a3b8;")
         main.addWidget(desc)
 
         top = QGridLayout()
@@ -120,6 +131,19 @@ class TopicRowWidget(QWidget):
             if value and value not in selections:
                 selections.append(value)
         return TopicState(selections=selections, notes=self.notes.toPlainText().strip(), assignee=self.assignee.text().strip())
+
+    def _show_help(self) -> None:
+        option_lines = []
+        for option in OPTION_SETS[self.definition.option_set]:
+            option_lines.append(f"• {option}: Diese Auswahl bedeutet, dass dieses Kriterium aktiv eingeplant wird.")
+
+        message = (
+            f"Thema: {self.definition.title}\n\n"
+            f"Worum geht es?\n{self.definition.description}\n\n"
+            "Was bedeuten die Auswahlmöglichkeiten?\n"
+            + "\n".join(option_lines)
+        )
+        QMessageBox.information(self, f"Hilfe: {self.definition.title}", message)
 
     def _emit(self) -> None:
         self.changed.emit()

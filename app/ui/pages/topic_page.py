@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Dict, List
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFrame, QGroupBox, QLabel, QScrollArea, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
 from app.models.definitions import TopicDefinition
 from app.models.project import TopicState
@@ -21,10 +21,18 @@ class TopicPage(QWidget):
         self.rows: Dict[str, TopicRowWidget] = {}
 
         root = QVBoxLayout(self)
+        head_row = QHBoxLayout()
         head = QLabel(f"<h2>{title}</h2>")
+        page_help = QPushButton("?")
+        page_help.setObjectName("helpButton")
+        page_help.setFixedWidth(28)
+        page_help.clicked.connect(self._show_page_help)
+        head_row.addWidget(head)
+        head_row.addStretch()
+        head_row.addWidget(page_help)
         subtitle = QLabel("Themen sind nach Unterbereichen gegliedert. Dadurch bleiben Planung und IT-Struktur übersichtlich.")
-        subtitle.setStyleSheet("color:#475569;")
-        root.addWidget(head)
+        subtitle.setStyleSheet("color:#94a3b8;")
+        root.addLayout(head_row)
         root.addWidget(subtitle)
 
         tabs = QTabWidget()
@@ -66,6 +74,14 @@ class TopicPage(QWidget):
             layout.addStretch()
             scroll.setWidget(body)
             tabs.addTab(scroll, domain_labels[domain])
+
+    def _show_page_help(self) -> None:
+        QMessageBox.information(
+            self,
+            "Hilfe zur Seite",
+            "Diese Seite ist in Tabs (Smart Home / Elektrik / IT & Netzwerk) gegliedert. "
+            "Jede Frage hat ein eigenes '?' für eine Einsteiger-Erklärung inklusive Bedeutung der Auswahloptionen.",
+        )
 
     def _update_state(self, key: str, row: TopicRowWidget) -> None:
         self.states[key] = row.get_state()

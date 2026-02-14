@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from math import ceil
 from typing import Dict, List
 
 from app.models.definitions import ROOM_TOPICS
@@ -58,3 +59,49 @@ def room_score(project: Project) -> Dict[str, dict]:
             color = "rot"
         scores[room_name] = {"value": round(raw, 2), "ampel": color, "conflicts": c}
     return scores
+
+
+def network_rollup(project: Project) -> dict:
+    ports_by_room: Dict[str, int] = {}
+
+    base_map = {
+        "Keine LAN-Ports": 0,
+        "1 Port": 1,
+        "2 Ports": 2,
+        "4 Ports": 4,
+        "6+ Ports": 6,
+    }
+
+    for room_name, room in project.rooms.items():
+        selections = room.topics.get("room_lan_ports").selections if room.topics.get("room_lan_ports") else []
+        port_count = 0
+        for selection in selections:
+            if selection in base_map:
+                port_count = max(port_count, base_map[selection])
+        if "Reserveport einplanen" in selections:
+            port_count += 1
+        if port_count > 0:
+            ports_by_room[room_name] = port_count
+
+    total_ports = sum(ports_by_room.values())
+    total_cables = total_ports
+    planned_with_overhead = ceil(total_ports * 1.2) + 2 if total_ports else 0
+
+    if planned_with_overhead <= 8:
+        switch = "8 Ports"
+    elif planned_with_overhead <= 16:
+        switch = "16 Ports"
+    elif planned_with_overhead <= 24:
+        switch = "24 Ports"
+    elif planned_with_overhead <= 48:
+        switch = "48 Ports"
+    else:
+        switch = "Mehrere Switches oder 48+ Ports"
+
+    return {
+        "ports_by_room": ports_by_room,
+        "total_ports": total_ports,
+        "total_cables": total_cables,
+        "ports_with_overhead": planned_with_overhead,
+        "recommended_switch": switch,
+    }
