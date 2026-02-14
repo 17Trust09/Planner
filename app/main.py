@@ -137,6 +137,7 @@ def main() -> int:
             border-radius: 10px;
         }
 
+        QWidget#topicCard[missing=true],
         QWidget#topicCard[missing="true"] {
             border: 2px solid #ef4444;
             background: #1f0f16;

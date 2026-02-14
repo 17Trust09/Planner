@@ -133,7 +133,7 @@ class TopicRowWidget(QWidget):
 
 
     def set_missing(self, is_missing: bool) -> None:
-        self.setProperty("missing", is_missing)
+        self.setProperty("missing", "true" if is_missing else "false")
         self.style().unpolish(self)
         self.style().polish(self)
         self.update()
