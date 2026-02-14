@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QMainWindow,
-    QSplitter,
     QMessageBox,
     QPushButton,
+    QSplitter,
     QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -54,14 +54,13 @@ class MainWindow(QMainWindow):
         self.btn_save_as = QPushButton("Speichern unter")
         self.btn_export_xlsx = QPushButton("Export Excel")
         self.btn_export_pdf = QPushButton("Export PDF")
-        self.btn_status = QPushButton("Status: Entwurf")
         self.nav = QTreeWidget()
         self.nav.setHeaderHidden(True)
         self.nav.setObjectName("navTree")
         self.btn_nav_help = QPushButton("Navigation ?")
         self.btn_nav_help.setObjectName("secondaryButton")
 
-        for button in [self.btn_new, self.btn_save, self.btn_save_as, self.btn_export_xlsx, self.btn_export_pdf, self.btn_status]:
+        for button in [self.btn_new, self.btn_save, self.btn_save_as, self.btn_export_xlsx, self.btn_export_pdf]:
             button.setObjectName("primaryButton")
             nav_layout.addWidget(button)
 
@@ -154,9 +153,7 @@ class MainWindow(QMainWindow):
         self.btn_save_as.clicked.connect(self._save_project_as)
         self.btn_export_xlsx.clicked.connect(self._export_excel)
         self.btn_export_pdf.clicked.connect(self._export_pdf)
-        self.btn_status.clicked.connect(self._cycle_status)
         self.btn_nav_help.clicked.connect(self._show_nav_help)
-
 
     def _show_nav_help(self) -> None:
         QMessageBox.information(
@@ -241,14 +238,6 @@ class MainWindow(QMainWindow):
 
     def refresh_start(self) -> None:
         self.start_page.set_projects(list_projects())
-        self.btn_status.setText(f"Status: {self.current_project.metadata.status}")
-
-    def _cycle_status(self) -> None:
-        order = ["Entwurf", "Prüfung", "Freigegeben"]
-        cur = self.current_project.metadata.status
-        idx = order.index(cur) if cur in order else 0
-        self.current_project.metadata.status = order[(idx + 1) % len(order)]
-        self.btn_status.setText(f"Status: {self.current_project.metadata.status}")
 
     def _export_excel(self) -> None:
         self._persist_all_pages()
@@ -266,9 +255,6 @@ class MainWindow(QMainWindow):
         errors = validate_required_fields(self.current_project)
         if errors:
             QMessageBox.warning(self, "Pflichtfelder fehlen", "\n".join(errors[:20]))
-            return
-        if self.current_project.metadata.status != "Freigegeben":
-            QMessageBox.warning(self, "Status", "PDF Export nur im Status 'Freigegeben'.")
             return
         target, _ = QFileDialog.getSaveFileName(self, "PDF exportieren", "report.pdf", "PDF (*.pdf)")
         if not target:
