@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
@@ -8,6 +9,8 @@ from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from app.services.storage import ensure_storage
 from app.ui.main_window import MainWindow
+
+SPLASH_MIN_SECONDS = 8.0
 
 
 def _create_splash() -> QSplashScreen:
@@ -38,6 +41,7 @@ def _create_splash() -> QSplashScreen:
 
 
 def main() -> int:
+    splash_started_at = time.perf_counter()
     app = QApplication(sys.argv)
     splash = _create_splash()
     splash.show()
@@ -274,6 +278,13 @@ def main() -> int:
     )
     splash.showMessage("Starte Oberfläche …", Qt.AlignBottom | Qt.AlignHCenter, QColor("#CBD5E1"))
     app.processEvents()
+
+    elapsed = time.perf_counter() - splash_started_at
+    remaining = max(0.0, SPLASH_MIN_SECONDS - elapsed)
+    end_time = time.perf_counter() + remaining
+    while time.perf_counter() < end_time:
+        app.processEvents()
+        time.sleep(0.05)
 
     window = MainWindow()
     window.show()
