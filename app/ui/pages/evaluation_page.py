@@ -65,7 +65,7 @@ class EvaluationPage(QWidget):
     def refresh(self, project: Project) -> None:
         matrix = build_room_matrix(project)
         metrics = topic_metrics(project)
-        rooms = [*project.rooms.keys(), OUTDOOR_AREA_NAME]
+        rooms = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
         topics = list(matrix.keys())
 
         self.table.setRowCount(len(topics))
@@ -124,7 +124,11 @@ class EvaluationPage(QWidget):
         self.network_view.setPlainText("\n".join(network_lines))
 
         score_lines = ["Raum-Ampeln:"]
-        for room, s in scores.items():
+        score_order = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
+        for room in score_order:
+            s = scores.get(room)
+            if not s:
+                continue
             score_lines.append(f"• {room}: {s['ampel']} ({s['value']}) | Konflikte: {s['conflicts']}")
         self.score_view.setPlainText("\n".join(score_lines))
 

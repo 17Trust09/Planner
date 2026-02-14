@@ -172,9 +172,6 @@ class MainWindow(QMainWindow):
         global_item = QTreeWidgetItem(["Global"])
         global_item.setData(0, Qt.UserRole, "global")
         overview.addChild(global_item)
-        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
-        outdoor_item.setData(0, Qt.UserRole, "outdoor")
-        overview.addChild(outdoor_item)
         evaluation_item = QTreeWidgetItem(["Auswertung"])
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
@@ -182,6 +179,10 @@ class MainWindow(QMainWindow):
         rooms_root = QTreeWidgetItem(["Räume nach Etage"])
         rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
         self.nav.addTopLevelItem(rooms_root)
+
+        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
+        outdoor_item.setData(0, Qt.UserRole, "outdoor")
+        rooms_root.addChild(outdoor_item)
 
         for floor, rooms in FLOORS.items():
             floor_item = QTreeWidgetItem([floor])
@@ -226,8 +227,8 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Hilfe: Navigation",
-            "Projektübersicht enthält Start, Global, Außenbereich und Auswertung.\n"
-            "Unter 'Räume nach Etage' findest du alle Innenräume.\n"
+            "Projektübersicht enthält Start, Global und Auswertung.\n"
+            "Unter 'Räume nach Etage' findest du Außenbereich und alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
 

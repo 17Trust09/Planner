@@ -56,7 +56,7 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
         _write_topic_sheet(ws, room_name, ROOM_TOPICS, room.topics)
 
     ws_eval = wb.create_sheet("Auswertung_Raumvergleich")
-    evaluation_columns = [*project.rooms.keys(), OUTDOOR_AREA_NAME]
+    evaluation_columns = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
     ws_eval.append(["Topic", *evaluation_columns, "Bereiche mit Auswahl", "Diversity", "Dominanz"])
     for c in ws_eval[1]:
         c.fill = HEADER_FILL
