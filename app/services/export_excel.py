@@ -5,7 +5,7 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from app.models.definitions import GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, topic_metrics
 
@@ -48,12 +48,16 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
     ws_global = wb.active
     _write_topic_sheet(ws_global, "Global_Planung", GLOBAL_TOPICS, project.global_topics)
 
+    ws_outdoor = wb.create_sheet(title=OUTDOOR_AREA_NAME[:31])
+    _write_topic_sheet(ws_outdoor, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, project.outdoor_topics)
+
     for room_name, room in project.rooms.items():
         ws = wb.create_sheet(title=room_name[:31])
         _write_topic_sheet(ws, room_name, ROOM_TOPICS, room.topics)
 
     ws_eval = wb.create_sheet("Auswertung_Raumvergleich")
-    ws_eval.append(["Topic", *project.rooms.keys(), "Räume mit Auswahl", "Diversity", "Dominanz"])
+    evaluation_columns = [*project.rooms.keys(), OUTDOOR_AREA_NAME]
+    ws_eval.append(["Topic", *evaluation_columns, "Bereiche mit Auswahl", "Diversity", "Dominanz"])
     for c in ws_eval[1]:
         c.fill = HEADER_FILL
         c.font = Font(color="FFFFFF", bold=True)
@@ -61,7 +65,7 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
     metrics = topic_metrics(project)
     row = 2
     for topic, per_room in matrix.items():
-        values = [", ".join(per_room[r]) or "—" for r in project.rooms.keys()]
+        values = [", ".join(per_room[column]) or "—" for column in evaluation_columns]
         m = metrics[topic]
         ws_eval.append([
             topic,

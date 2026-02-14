@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.models.definitions import OUTDOOR_AREA_NAME
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, network_rollup, room_score, topic_metrics
 from app.services.validation import detect_conflicts
@@ -64,7 +65,7 @@ class EvaluationPage(QWidget):
     def refresh(self, project: Project) -> None:
         matrix = build_room_matrix(project)
         metrics = topic_metrics(project)
-        rooms = list(project.rooms.keys())
+        rooms = [*project.rooms.keys(), OUTDOOR_AREA_NAME]
         topics = list(matrix.keys())
 
         self.table.setRowCount(len(topics))
@@ -83,7 +84,7 @@ class EvaluationPage(QWidget):
         metric_lines = ["Themen-Metriken:"]
         for topic, m in metrics.items():
             metric_lines.append(
-                f"• {topic}: Räume {m['rooms_with_selection']}/{m['room_count']} | "
+                f"• {topic}: Bereiche {m['rooms_with_selection']}/{m['room_count']} | "
                 f"Diversity {m['diversity']} | Dominanz {m['dominant_ratio']:.2f}"
             )
         self.metrics_view.setPlainText("\n".join(metric_lines))

@@ -4,23 +4,32 @@ from collections import Counter
 from math import ceil
 from typing import Dict, List
 
-from app.models.definitions import ROOM_TOPICS
+from app.models.definitions import OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.validation import detect_conflicts
 
 
 def build_room_matrix(project: Project) -> Dict[str, Dict[str, List[str]]]:
     matrix: Dict[str, Dict[str, List[str]]] = {}
+
     for topic in ROOM_TOPICS:
         matrix[topic.title] = {}
         for room_name, room in project.rooms.items():
             matrix[topic.title][room_name] = room.topics[topic.key].selections
+        matrix[topic.title][OUTDOOR_AREA_NAME] = []
+
+    for topic in OUTDOOR_TOPICS:
+        matrix[topic.title] = {}
+        for room_name in project.rooms.keys():
+            matrix[topic.title][room_name] = []
+        matrix[topic.title][OUTDOOR_AREA_NAME] = project.outdoor_topics[topic.key].selections
+
     return matrix
 
 
 def topic_metrics(project: Project) -> Dict[str, dict]:
     metrics: Dict[str, dict] = {}
-    room_count = len(project.rooms)
+
     for topic in ROOM_TOPICS:
         all_values: List[str] = []
         rooms_with = 0
@@ -34,11 +43,23 @@ def topic_metrics(project: Project) -> Dict[str, dict]:
         dominant = (freq.most_common(1)[0][1] / len(all_values)) if all_values else 0.0
         metrics[topic.title] = {
             "rooms_with_selection": rooms_with,
-            "room_count": room_count,
+            "room_count": len(project.rooms),
             "frequency": dict(freq),
             "diversity": diversity,
             "dominant_ratio": dominant,
         }
+
+    for topic in OUTDOOR_TOPICS:
+        selections = project.outdoor_topics[topic.key].selections
+        freq = Counter(selections)
+        metrics[topic.title] = {
+            "rooms_with_selection": 1 if selections else 0,
+            "room_count": 1,
+            "frequency": dict(freq),
+            "diversity": len(freq),
+            "dominant_ratio": (freq.most_common(1)[0][1] / len(selections)) if selections else 0.0,
+        }
+
     return metrics
 
 
@@ -58,6 +79,18 @@ def room_score(project: Project) -> Dict[str, dict]:
         else:
             color = "rot"
         scores[room_name] = {"value": round(raw, 2), "ampel": color, "conflicts": c}
+
+    outdoor_filled = sum(1 for t in OUTDOOR_TOPICS if project.outdoor_topics[t.key].selections)
+    outdoor_total = len(OUTDOOR_TOPICS)
+    outdoor_raw = outdoor_filled / outdoor_total if outdoor_total else 0
+    if outdoor_raw >= 0.8:
+        outdoor_color = "grün"
+    elif outdoor_raw >= 0.55:
+        outdoor_color = "gelb"
+    else:
+        outdoor_color = "rot"
+    scores[OUTDOOR_AREA_NAME] = {"value": round(outdoor_raw, 2), "ampel": outdoor_color, "conflicts": 0}
+
     return scores
 
 

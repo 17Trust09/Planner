@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.models.definitions import GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.evaluation import room_score
 from app.services.validation import detect_conflicts
@@ -37,6 +37,19 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
     ]))
     flow.append(gt)
     flow.append(Spacer(1, 12))
+
+    flow.append(Paragraph(f"<b>{OUTDOOR_AREA_NAME}</b>", styles["Heading3"]))
+    outdoor_data = [["Thema", "Auswahl(en)", "Verantwortlich", "Notizen"]]
+    for t in OUTDOOR_TOPICS:
+        s = project.outdoor_topics[t.key]
+        outdoor_data.append([t.title, ", ".join(s.selections) or "—", s.assignee or "—", s.notes or "—"])
+    ot = Table(outdoor_data, repeatRows=1)
+    ot.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E293B")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    flow.append(ot)
 
     scores = room_score(project)
     conflicts = detect_conflicts(project)
