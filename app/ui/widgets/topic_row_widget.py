@@ -131,6 +131,13 @@ class TopicRowWidget(QWidget):
         self.add_btn.setEnabled(len(self.combos) < self.definition.max_selections)
         self.remove_btn.setEnabled(len(self.combos) > 1)
 
+
+    def set_missing(self, is_missing: bool) -> None:
+        self.setProperty("missing", is_missing)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
     def get_state(self) -> TopicState:
         selections = []
         for c in self.combos:

@@ -19,6 +19,8 @@ class TopicPage(QWidget):
         self.topics = topics
         self.states = states
         self.rows: Dict[str, TopicRowWidget] = {}
+        self.tabs = QTabWidget()
+        self.topic_tab_index: Dict[str, int] = {}
 
         root = QVBoxLayout(self)
         head_row = QHBoxLayout()
@@ -35,8 +37,7 @@ class TopicPage(QWidget):
         root.addLayout(head_row)
         root.addWidget(subtitle)
 
-        tabs = QTabWidget()
-        root.addWidget(tabs)
+        root.addWidget(self.tabs)
 
         domain_labels = {
             "SMART_HOME": "Smart Home",
@@ -59,6 +60,7 @@ class TopicPage(QWidget):
             body = QWidget()
             layout = QVBoxLayout(body)
 
+            tab_index = self.tabs.count()
             for section, section_topics in sections.items():
                 box = QGroupBox(section)
                 box_layout = QVBoxLayout(box)
@@ -68,12 +70,13 @@ class TopicPage(QWidget):
                     row.changed.connect(lambda key=topic.key, widget=row: self._update_state(key, widget))
                     row.setFrameStyle(QFrame.NoFrame) if hasattr(row, "setFrameStyle") else None
                     self.rows[topic.key] = row
+                    self.topic_tab_index[topic.key] = tab_index
                     box_layout.addWidget(row)
                 layout.addWidget(box)
 
             layout.addStretch()
             scroll.setWidget(body)
-            tabs.addTab(scroll, domain_labels[domain])
+            self.tabs.addTab(scroll, domain_labels[domain])
 
     def _show_page_help(self) -> None:
         QMessageBox.information(
@@ -83,8 +86,26 @@ class TopicPage(QWidget):
             "Jede Frage hat ein eigenes '?' für eine Einsteiger-Erklärung inklusive Bedeutung der Auswahloptionen.",
         )
 
+    def mark_missing(self, topic_key: str, is_missing: bool) -> None:
+        row = self.rows.get(topic_key)
+        if row:
+            row.set_missing(is_missing)
+
+    def clear_all_missing(self) -> None:
+        for row in self.rows.values():
+            row.set_missing(False)
+
+    def focus_topic(self, topic_key: str) -> None:
+        tab_idx = self.topic_tab_index.get(topic_key)
+        if tab_idx is not None:
+            self.tabs.setCurrentIndex(tab_idx)
+        row = self.rows.get(topic_key)
+        if row:
+            row.setFocus()
+
     def _update_state(self, key: str, row: TopicRowWidget) -> None:
         self.states[key] = row.get_state()
+        row.set_missing(False)
         self.changed.emit()
 
     def persist(self) -> None:

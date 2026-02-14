@@ -5,8 +5,13 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -23,10 +28,47 @@ from app.models.project import Project, create_empty_project
 from app.services.export_excel import export_project_to_excel
 from app.services.export_pdf import export_project_to_pdf
 from app.services.storage import PROJECTS_DIR, list_projects, load_project, save_project
-from app.services.validation import validate_required_fields
+from app.services.validation import MissingRequiredField, required_field_entries
 from app.ui.pages.evaluation_page import EvaluationPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
+
+
+class MissingFieldsDialog(QDialog):
+    def __init__(self, missing: list[MissingRequiredField], parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Pflichtfelder fehlen")
+        self.resize(560, 360)
+        self.selected: MissingRequiredField | None = None
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Folgende Pflichtfelder fehlen. Doppelklick oder 'Zum Feld springen' öffnet direkt die Stelle:"))
+
+        self.list_widget = QListWidget()
+        for item in missing:
+            text = f"Global: {item.topic_title}" if item.scope == "global" else f"Raum {item.room_name}: {item.topic_title}"
+            entry = QListWidgetItem(text)
+            entry.setData(Qt.UserRole, item)
+            self.list_widget.addItem(entry)
+        layout.addWidget(self.list_widget)
+
+        self.buttons = QDialogButtonBox()
+        self.jump_btn = self.buttons.addButton("Zum Feld springen", QDialogButtonBox.AcceptRole)
+        self.buttons.addButton("Schließen", QDialogButtonBox.RejectRole)
+        layout.addWidget(self.buttons)
+
+        self.jump_btn.clicked.connect(self._accept_selected)
+        self.buttons.rejected.connect(self.reject)
+        self.list_widget.itemDoubleClicked.connect(lambda _: self._accept_selected())
+
+    def _accept_selected(self) -> None:
+        current = self.list_widget.currentItem()
+        if current is None and self.list_widget.count() > 0:
+            current = self.list_widget.item(0)
+        if current is None:
+            return
+        self.selected = current.data(Qt.UserRole)
+        self.accept()
 
 
 class MainWindow(QMainWindow):
@@ -164,6 +206,32 @@ class MainWindow(QMainWindow):
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
 
+    def _clear_missing_marks(self) -> None:
+        self.global_page.clear_all_missing()
+        for page in self.room_pages.values():
+            page.clear_all_missing()
+
+    def _show_missing_required_fields(self, missing: list[MissingRequiredField]) -> bool:
+        self._clear_missing_marks()
+        for field in missing:
+            if field.scope == "global":
+                self.global_page.mark_missing(field.topic_key, True)
+            elif field.room_name and field.room_name in self.room_pages:
+                self.room_pages[field.room_name].mark_missing(field.topic_key, True)
+
+        dialog = MissingFieldsDialog(missing, self)
+        if dialog.exec() == QDialog.Accepted and dialog.selected:
+            field = dialog.selected
+            if field.scope == "global":
+                self.stack.setCurrentWidget(self.global_page)
+                self.global_page.focus_topic(field.topic_key)
+            elif field.room_name and field.room_name in self.room_pages:
+                page = self.room_pages[field.room_name]
+                self.stack.setCurrentWidget(page)
+                page.focus_topic(field.topic_key)
+            return True
+        return False
+
     def _navigate(self, item: QTreeWidgetItem | None, _: QTreeWidgetItem | None = None) -> None:
         if item is None:
             return
@@ -241,9 +309,9 @@ class MainWindow(QMainWindow):
 
     def _export_excel(self) -> None:
         self._persist_all_pages()
-        errors = validate_required_fields(self.current_project)
-        if errors:
-            QMessageBox.warning(self, "Pflichtfelder fehlen", "\n".join(errors[:20]))
+        missing = required_field_entries(self.current_project)
+        if missing:
+            self._show_missing_required_fields(missing)
             return
         target, _ = QFileDialog.getSaveFileName(self, "Excel exportieren", "export.xlsx", "Excel (*.xlsx)")
         if not target:
@@ -252,9 +320,9 @@ class MainWindow(QMainWindow):
 
     def _export_pdf(self) -> None:
         self._persist_all_pages()
-        errors = validate_required_fields(self.current_project)
-        if errors:
-            QMessageBox.warning(self, "Pflichtfelder fehlen", "\n".join(errors[:20]))
+        missing = required_field_entries(self.current_project)
+        if missing:
+            self._show_missing_required_fields(missing)
             return
         target, _ = QFileDialog.getSaveFileName(self, "PDF exportieren", "report.pdf", "PDF (*.pdf)")
         if not target:
