@@ -15,17 +15,39 @@ SPLASH_MIN_SECONDS = 8.0
 
 
 def _load_logo_pixmap() -> QPixmap | None:
-    candidates = [
-        Path("data/logo.png"),
-        Path("data/logo.jpg"),
-        Path("app/assets/logo.png"),
-        Path("app/assets/splash_logo.png"),
+    app_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+    search_dirs = [Path.cwd(), app_dir]
+
+    preferred_names = [
+        "logo.png",
+        "logo.jpg",
+        "logo.jpeg",
+        "logo.webp",
+        "splash_logo.png",
+        "splash_logo.jpg",
+        "splash_logo.jpeg",
     ]
-    for logo_path in candidates:
-        if logo_path.exists():
-            pixmap = QPixmap(str(logo_path))
-            if not pixmap.isNull():
-                return pixmap
+
+    for base in search_dirs:
+        for rel in [Path("data"), Path("app/assets")]:
+            folder = (base / rel)
+            for name in preferred_names:
+                candidate = folder / name
+                if candidate.exists():
+                    pixmap = QPixmap(str(candidate))
+                    if not pixmap.isNull():
+                        return pixmap
+
+    for base in search_dirs:
+        data_folder = base / "data"
+        if not data_folder.exists():
+            continue
+        for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp"):
+            for candidate in sorted(data_folder.glob(ext)):
+                pixmap = QPixmap(str(candidate))
+                if not pixmap.isNull():
+                    return pixmap
+
     return None
 
 
@@ -65,7 +87,7 @@ def _create_splash() -> QSplashScreen:
 
     painter.setPen(QColor("#89A9C7"))
     painter.setFont(QFont("Arial", 12))
-    painter.drawText(0, 396, 900, 28, Qt.AlignCenter, "Lege optional dein Logo unter data/logo.png oder data/logo.jpg ab.")
+    painter.drawText(0, 396, 900, 28, Qt.AlignCenter, "Lege dein Logo als data/logo.png (oder .jpg/.jpeg/.webp) ab – alternativ wird das erste Bild in /data genutzt.")
     painter.end()
 
     splash = QSplashScreen(pixmap)
