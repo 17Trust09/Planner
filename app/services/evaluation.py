@@ -199,3 +199,30 @@ def network_rollup(project: Project) -> dict:
         "split_recommended": split_recommended,
         "split_plan": split_plan,
     }
+
+
+def recommended_global_network_topics(project: Project) -> Dict[str, List[str]]:
+    net = network_rollup(project)
+
+    switch_value = net["recommended_switch"]
+    if switch_value == "Mehrere Switches oder 48+ Ports":
+        switch_value = "Mehrere Switches"
+
+    poe_share = (net["total_ap_poe_cables"] / net["ports_with_overhead"]) if net["ports_with_overhead"] else 0.0
+    if poe_share >= 0.6:
+        poe_share_value = "Ja"
+    elif poe_share >= 0.25:
+        poe_share_value = "Vielleicht"
+    else:
+        poe_share_value = "Nein"
+
+    total_planned_aps = net["total_ap_count"] + net["outdoor_ap_count"]
+    ap_count_value = "Ja" if total_planned_aps > 0 else "Nein"
+    poe_planning_value = "Ja" if net["total_ap_poe_cables"] > 0 else "Nein"
+
+    return {
+        "global_switch_size": [switch_value],
+        "global_switch_poe": [poe_share_value],
+        "global_ap_count": [ap_count_value],
+        "global_poe": [poe_planning_value],
+    }

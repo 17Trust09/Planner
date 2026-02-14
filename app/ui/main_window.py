@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from app.models.definitions import FLOORS, GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project, create_empty_project
+from app.services.evaluation import recommended_global_network_topics
 from app.services.export_excel import export_project_to_excel
 from app.services.export_pdf import export_project_to_pdf
 from app.services.storage import PROJECTS_DIR, list_projects, load_project, save_project
@@ -335,6 +336,26 @@ class MainWindow(QMainWindow):
         self.pricing_page.persist()
         for page in self.room_pages.values():
             page.persist()
+        self._sync_global_network_topics()
+
+
+    def _sync_global_network_topics(self) -> None:
+        recommendations = recommended_global_network_topics(self.current_project)
+        for key, selections in recommendations.items():
+            topic_state = self.current_project.global_topics.get(key)
+            if topic_state is None:
+                continue
+            topic_state.selections = selections
+
+            row = self.global_page.rows.get(key)
+            if row is None:
+                continue
+            while len(row.combos) > 1:
+                row.remove_combo()
+            if not row.combos:
+                row.add_combo(emit=False)
+            target = selections[0] if selections else ""
+            row.combos[0].setCurrentText(target)
 
     def _on_project_changed(self) -> None:
         self.current_project.touch()
