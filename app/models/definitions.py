@@ -93,6 +93,18 @@ OPTION_SETS: Dict[str, List[str]] = {
     "AUTOMATION_LEVEL_OPTIONS": [
         "Keine Automationen", "Basis (Zeit/Schwellwert)", "Mittel (Szenen + Präsenz)", "Erweitert (Kontext + Energie)",
     ],
+    "ROUTER_OPTIONS": [
+        "Vorhanden und ausreichend", "Vorhanden, Upgrade empfohlen", "Neuanschaffung geplant", "Provider-Router + eigener Router",
+    ],
+    "SWITCH_SIZE_OPTIONS": [
+        "Kein zusätzlicher Switch", "8 Ports", "16 Ports", "24 Ports", "48 Ports", "Mehrere Switches",
+    ],
+    "LAN_PORT_COUNT_OPTIONS": [
+        "Keine LAN-Ports", "1 Port", "2 Ports", "4 Ports", "6+ Ports", "Reserveport einplanen",
+    ],
+    "AP_PLAN_OPTIONS": [
+        "Kein AP im Raum", "AP im Raum", "AP in Flur/nahe Raum", "Optional bei Bedarf", "Meshing statt Kabel-AP",
+    ],
 }
 
 
@@ -125,6 +137,10 @@ GLOBAL_TOPICS: List[TopicDefinition] = [
     TopicDefinition("global_anschluss", "VERDRAHTUNG & ELEKTRIK", "Anschlussplan", "Anschluss-/Klemmenplan vorhanden", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
 
     TopicDefinition("global_network", "NETZWERK & FUNK", "Netzwerkstrategie", "LAN/WLAN/AP Strategie", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
+    TopicDefinition("global_router", "NETZWERK & FUNK", "Router-Status", "Ist ein Router vorhanden und ausreichend?", "ROUTER_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("global_switch_size", "NETZWERK & FUNK", "Switch-Größe", "Portkapazität für den zentralen Switch", "SWITCH_SIZE_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("global_switch_poe", "NETZWERK & FUNK", "Switch PoE-Anteil", "Anteil der Ports mit PoE-Bedarf", "YES_MAYBE_NO", [DOMAIN_IT], True),
+    TopicDefinition("global_ap_count", "NETZWERK & FUNK", "Access-Point-Menge", "Ist die Anzahl geplanter APs ausreichend?", "YES_MAYBE_NO", [DOMAIN_IT], True),
     TopicDefinition("global_poe", "NETZWERK & FUNK", "PoE-Planung", "PoE-Versorgung geplant", "YES_MAYBE_NO", [DOMAIN_IT]),
     TopicDefinition("global_coverage", "NETZWERK & FUNK", "WLAN-Abdeckungsziel", "Qualitätsziel je Hausbereich", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("global_protocols", "NETZWERK & FUNK", "Funk-/Bus-Protokolle", "Genutzte Smart-Home-Protokolle", "PROTOCOL_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 3),
@@ -153,6 +169,8 @@ ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2),
 
     TopicDefinition("room_network", "NETZWERK", "Netzwerk", "LAN/WLAN/PoE im Raum", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
+    TopicDefinition("room_lan_ports", "NETZWERK", "LAN-Kabel pro Raum", "Wie viele Netzwerkkabel/LAN-Ports sollen verlegt werden", "LAN_PORT_COUNT_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("room_access_point", "NETZWERK", "Access Point im Raum", "Soll der Raum selbst einen AP erhalten", "AP_PLAN_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_coverage", "NETZWERK", "Netzabdeckung Raum", "Abdeckungsziel pro Raum", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_power", "NETZWERK", "Steckdosen & Messung", "Schalt-/Messbedarf", "POWER_OPTIONS", [DOMAIN_ELEC, DOMAIN_SMART]),
 

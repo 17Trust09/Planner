@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
-    QListWidget,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -44,7 +46,8 @@ class MainWindow(QMainWindow):
         self.btn_export_xlsx = QPushButton("Export Excel")
         self.btn_export_pdf = QPushButton("Export PDF")
         self.btn_status = QPushButton("Status: Entwurf")
-        self.nav = QListWidget()
+        self.nav = QTreeWidget()
+        self.nav.setHeaderHidden(True)
 
         nav_layout.addWidget(self.btn_new)
         nav_layout.addWidget(self.btn_save)
@@ -72,14 +75,36 @@ class MainWindow(QMainWindow):
 
     def _build_navigation(self) -> None:
         self.nav.clear()
-        self.nav.addItem("Start")
-        self.nav.addItem("Global")
-        self.nav.addItem("Auswertung")
+
+        overview = QTreeWidgetItem(["Projektübersicht"])
+        overview.setFlags(overview.flags() & ~Qt.ItemIsSelectable)
+        self.nav.addTopLevelItem(overview)
+        start_item = QTreeWidgetItem(["Start"])
+        start_item.setData(0, Qt.UserRole, "start")
+        overview.addChild(start_item)
+        global_item = QTreeWidgetItem(["Global"])
+        global_item.setData(0, Qt.UserRole, "global")
+        overview.addChild(global_item)
+        evaluation_item = QTreeWidgetItem(["Auswertung"])
+        evaluation_item.setData(0, Qt.UserRole, "evaluation")
+        overview.addChild(evaluation_item)
+
+        rooms_root = QTreeWidgetItem(["Räume nach Etage"])
+        rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
+        self.nav.addTopLevelItem(rooms_root)
+
         for floor, rooms in FLOORS.items():
-            self.nav.addItem(f"-- {floor} --")
+            floor_item = QTreeWidgetItem([floor])
+            floor_item.setFlags(floor_item.flags() & ~Qt.ItemIsSelectable)
+            rooms_root.addChild(floor_item)
             for room in rooms:
-                self.nav.addItem(room)
-        self.nav.setCurrentRow(0)
+                room_item = QTreeWidgetItem([room])
+                room_item.setData(0, Qt.UserRole, room)
+                floor_item.addChild(room_item)
+
+        self.nav.expandAll()
+        start_item = overview.child(0)
+        self.nav.setCurrentItem(start_item)
 
     def _build_pages(self) -> None:
         self.stack.addWidget(self.start_page)
@@ -95,7 +120,7 @@ class MainWindow(QMainWindow):
         self.eval_page.refresh(self.current_project)
 
     def _bind_events(self) -> None:
-        self.nav.currentRowChanged.connect(self._navigate)
+        self.nav.currentItemChanged.connect(self._navigate)
         self.btn_new.clicked.connect(self._new_project)
         self.btn_save.clicked.connect(self._save_project)
         self.btn_save_as.clicked.connect(self._save_project_as)
@@ -103,24 +128,26 @@ class MainWindow(QMainWindow):
         self.btn_export_pdf.clicked.connect(self._export_pdf)
         self.btn_status.clicked.connect(self._cycle_status)
 
-    def _navigate(self, row: int) -> None:
-        text = self.nav.item(row).text()
-        if text.startswith("--"):
+    def _navigate(self, item: QTreeWidgetItem | None, _: QTreeWidgetItem | None = None) -> None:
+        if item is None:
             return
-        if text == "Start":
+
+        key = item.data(0, Qt.UserRole)
+        if key == "start":
             self.stack.setCurrentWidget(self.start_page)
             return
-        if text == "Global":
+        if key == "global":
             self.stack.setCurrentWidget(self.global_page)
             return
-        if text == "Auswertung":
+        if key == "evaluation":
             self._persist_all_pages()
             self.eval_page.refresh(self.current_project)
             self.stack.setCurrentWidget(self.eval_page)
             return
-        page = self.room_pages.get(text)
-        if page:
-            self.stack.setCurrentWidget(page)
+        if isinstance(key, str):
+            page = self.room_pages.get(key)
+            if page:
+                self.stack.setCurrentWidget(page)
 
     def _new_project(self) -> None:
         self.current_project = create_empty_project("Projekt Neu")
@@ -177,7 +204,6 @@ class MainWindow(QMainWindow):
     def refresh_start(self) -> None:
         self.start_page.set_projects(list_projects())
         self.btn_status.setText(f"Status: {self.current_project.metadata.status}")
-
 
     def _cycle_status(self) -> None:
         order = ["Entwurf", "Prüfung", "Freigegeben"]

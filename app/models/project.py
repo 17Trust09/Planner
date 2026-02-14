@@ -45,11 +45,18 @@ class Project:
     @staticmethod
     def from_dict(data: Dict) -> "Project":
         metadata = ProjectMetadata(**data["metadata"])
-        global_topics = {k: TopicState(**v) for k, v in data.get("global_topics", {}).items()}
+
+        raw_global_topics = {k: TopicState(**v) for k, v in data.get("global_topics", {}).items()}
+        global_topics = {topic.key: raw_global_topics.get(topic.key, TopicState()) for topic in GLOBAL_TOPICS}
+
         rooms: Dict[str, RoomData] = {}
-        for name, room_data in data.get("rooms", {}).items():
-            topics = {k: TopicState(**v) for k, v in room_data.get("topics", {}).items()}
-            rooms[name] = RoomData(name=room_data["name"], floor=room_data["floor"], topics=topics)
+        for floor, room_names in FLOORS.items():
+            for room_name in room_names:
+                room_data = data.get("rooms", {}).get(room_name, {"name": room_name, "floor": floor, "topics": {}})
+                raw_topics = {k: TopicState(**v) for k, v in room_data.get("topics", {}).items()}
+                topics = {topic.key: raw_topics.get(topic.key, TopicState()) for topic in ROOM_TOPICS}
+                rooms[room_name] = RoomData(name=room_name, floor=floor, topics=topics)
+
         return Project(metadata=metadata, global_topics=global_topics, rooms=rooms)
 
 
