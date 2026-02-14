@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QMainWindow,
     QMessageBox,
@@ -38,8 +39,15 @@ class MainWindow(QMainWindow):
 
         root = QWidget()
         root_layout = QHBoxLayout(root)
+        root_layout.setContentsMargins(16, 16, 16, 16)
+        root_layout.setSpacing(14)
 
-        nav_layout = QVBoxLayout()
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        nav_layout = QVBoxLayout(sidebar)
+        nav_layout.setContentsMargins(12, 12, 12, 12)
+        nav_layout.setSpacing(8)
+
         self.btn_new = QPushButton("Neues Projekt")
         self.btn_save = QPushButton("Speichern")
         self.btn_save_as = QPushButton("Speichern unter")
@@ -48,18 +56,25 @@ class MainWindow(QMainWindow):
         self.btn_status = QPushButton("Status: Entwurf")
         self.nav = QTreeWidget()
         self.nav.setHeaderHidden(True)
+        self.nav.setObjectName("navTree")
 
-        nav_layout.addWidget(self.btn_new)
-        nav_layout.addWidget(self.btn_save)
-        nav_layout.addWidget(self.btn_save_as)
-        nav_layout.addWidget(self.btn_export_xlsx)
-        nav_layout.addWidget(self.btn_export_pdf)
-        nav_layout.addWidget(self.btn_status)
-        nav_layout.addWidget(self.nav)
+        for button in [self.btn_new, self.btn_save, self.btn_save_as, self.btn_export_xlsx, self.btn_export_pdf, self.btn_status]:
+            button.setObjectName("primaryButton")
+            nav_layout.addWidget(button)
+
+        nav_layout.addWidget(self.nav, 1)
+
+        self.content_panel = QFrame()
+        self.content_panel.setObjectName("contentPanel")
+        content_layout = QVBoxLayout(self.content_panel)
+        content_layout.setContentsMargins(12, 12, 12, 12)
+        content_layout.setSpacing(0)
 
         self.stack = QStackedWidget()
-        root_layout.addLayout(nav_layout, 1)
-        root_layout.addWidget(self.stack, 5)
+        content_layout.addWidget(self.stack)
+
+        root_layout.addWidget(sidebar, 1)
+        root_layout.addWidget(self.content_panel, 5)
         self.setCentralWidget(root)
 
         self.start_page = StartPage()
@@ -103,7 +118,6 @@ class MainWindow(QMainWindow):
                 floor_item.addChild(room_item)
 
         self.nav.expandAll()
-        start_item = overview.child(0)
         self.nav.setCurrentItem(start_item)
 
     def _build_pages(self) -> None:
@@ -172,7 +186,6 @@ class MainWindow(QMainWindow):
             page.persist()
 
     def _on_project_changed(self) -> None:
-        # Kein Full-Reload: Änderungen bleiben lokal auf der aktiven Seite.
         self.current_project.touch()
 
     def _save_project(self) -> None:

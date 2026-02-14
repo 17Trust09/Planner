@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import List
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -28,20 +28,28 @@ class TopicRowWidget(QWidget):
         self.state = state
         self.combos: List[QComboBox] = []
 
+        self.setObjectName("topicCard")
+
         main = QVBoxLayout(self)
+        main.setSpacing(8)
+        main.setContentsMargins(10, 8, 10, 8)
+
         title = QLabel(f"<b>{definition.title}</b>")
         desc = QLabel(definition.description)
-        desc.setStyleSheet("color:#64748b;")
+        desc.setStyleSheet("color:#475569;")
         main.addWidget(title)
         main.addWidget(desc)
 
         top = QGridLayout()
+        top.setHorizontalSpacing(8)
         self.combo_container = QHBoxLayout()
+        self.combo_container.setSpacing(8)
         self.add_btn = QPushButton("+ Auswahl")
         self.remove_btn = QPushButton("- Auswahl")
         self.add_btn.clicked.connect(self.add_combo)
         self.remove_btn.clicked.connect(self.remove_combo)
         controls = QHBoxLayout()
+        controls.setSpacing(6)
         controls.addWidget(self.add_btn)
         controls.addWidget(self.remove_btn)
 
@@ -55,6 +63,7 @@ class TopicRowWidget(QWidget):
         self.assignee.textChanged.connect(self._emit)
         self.notes = QTextEdit()
         self.notes.setPlaceholderText("Notizen")
+        self.notes.setFixedHeight(64)
         self.notes.setPlainText(state.notes)
         self.notes.textChanged.connect(self._emit)
         main.addWidget(self.assignee)
