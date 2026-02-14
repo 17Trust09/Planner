@@ -2,15 +2,49 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from app.services.storage import ensure_storage
 from app.ui.main_window import MainWindow
 
 
+def _create_splash() -> QSplashScreen:
+    pixmap = QPixmap(760, 420)
+    pixmap.fill(QColor("#0B1220"))
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    painter.fillRect(30, 30, 700, 360, QColor("#111827"))
+
+    painter.setPen(QColor("#60A5FA"))
+    painter.setFont(QFont("Arial", 26, QFont.Bold))
+    painter.drawText(0, 160, 760, 44, Qt.AlignCenter, "Hi, willkommen")
+
+    painter.setPen(QColor("#E5E7EB"))
+    painter.setFont(QFont("Arial", 22, QFont.Bold))
+    painter.drawText(0, 206, 760, 44, Qt.AlignCenter, "zu Tims Homeplanung")
+
+    painter.setPen(QColor("#94A3B8"))
+    painter.setFont(QFont("Arial", 12))
+    painter.drawText(0, 260, 760, 28, Qt.AlignCenter, "App wird gestartet …")
+    painter.end()
+
+    splash = QSplashScreen(pixmap)
+    splash.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+    return splash
+
+
 def main() -> int:
-    ensure_storage()
     app = QApplication(sys.argv)
+    splash = _create_splash()
+    splash.show()
+    splash.showMessage("Lade Projektstruktur …", Qt.AlignBottom | Qt.AlignHCenter, QColor("#CBD5E1"))
+    app.processEvents()
+
+    ensure_storage()
     app.setStyleSheet(
         """
         QWidget {
@@ -238,8 +272,12 @@ def main() -> int:
         }
         """
     )
+    splash.showMessage("Starte Oberfläche …", Qt.AlignBottom | Qt.AlignHCenter, QColor("#CBD5E1"))
+    app.processEvents()
+
     window = MainWindow()
     window.show()
+    splash.finish(window)
     return app.exec()
 
 
