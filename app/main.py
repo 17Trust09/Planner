@@ -15,8 +15,17 @@ SPLASH_MIN_SECONDS = 8.0
 
 
 def _load_logo_pixmap() -> QPixmap | None:
-    app_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
-    search_dirs = [Path.cwd(), app_dir]
+    exe_dir = Path(sys.executable).resolve().parent
+    argv0_dir = Path(sys.argv[0]).resolve().parent if sys.argv and sys.argv[0] else exe_dir
+    meipass_dir = Path(getattr(sys, "_MEIPASS", exe_dir))
+
+    # Reihenfolge bewusst: erst benutzernahe Orte (neben EXE / aktueller Ordner),
+    # danach Bundle-Verzeichnisse. So funktioniert One-File-EXE zuverlässig.
+    search_bases = []
+    for base in [exe_dir, argv0_dir, Path.cwd(), meipass_dir]:
+        resolved = base.resolve()
+        if resolved not in search_bases:
+            search_bases.append(resolved)
 
     preferred_names = [
         "logo.png",
@@ -28,9 +37,9 @@ def _load_logo_pixmap() -> QPixmap | None:
         "splash_logo.jpeg",
     ]
 
-    for base in search_dirs:
-        for rel in [Path("data"), Path("app/assets")]:
-            folder = (base / rel)
+    for base in search_bases:
+        for rel in [Path("."), Path("data"), Path("app/assets")]:
+            folder = base / rel
             for name in preferred_names:
                 candidate = folder / name
                 if candidate.exists():
@@ -38,15 +47,17 @@ def _load_logo_pixmap() -> QPixmap | None:
                     if not pixmap.isNull():
                         return pixmap
 
-    for base in search_dirs:
-        data_folder = base / "data"
-        if not data_folder.exists():
-            continue
-        for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp"):
-            for candidate in sorted(data_folder.glob(ext)):
-                pixmap = QPixmap(str(candidate))
-                if not pixmap.isNull():
-                    return pixmap
+    # Fallback: erstes Bild in EXE-Ordner bzw. data-Unterordnern laden,
+    # damit auch frei benannte Dateien funktionieren.
+    for base in search_bases:
+        for folder in [base, base / "data"]:
+            if not folder.exists():
+                continue
+            for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp"):
+                for candidate in sorted(folder.glob(ext)):
+                    pixmap = QPixmap(str(candidate))
+                    if not pixmap.isNull():
+                        return pixmap
 
     return None
 
