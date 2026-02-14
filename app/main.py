@@ -51,28 +51,21 @@ def _create_splash() -> QSplashScreen:
         x = (900 - scaled.width()) // 2
         painter.drawPixmap(x, 80, scaled)
     else:
-        title_gradient = QLinearGradient(240, 120, 660, 220)
-        title_gradient.setColorAt(0.0, QColor("#d6f4ff"))
-        title_gradient.setColorAt(0.5, QColor("#81dcff"))
-        title_gradient.setColorAt(1.0, QColor("#39b4ff"))
         painter.setPen(QColor("#bfefff"))
-        painter.setFont(QFont("Arial", 26, QFont.Bold))
-        painter.drawText(0, 130, 900, 40, Qt.AlignCenter, "TIM HÖLZER")
-        painter.setPen(QColor("#61ceff"))
-        painter.setFont(QFont("Arial", 56, QFont.Black))
-        painter.drawText(0, 160, 900, 90, Qt.AlignCenter, "ICEKEY")
+        painter.setFont(QFont("Arial", 42, QFont.Black))
+        painter.drawText(0, 145, 900, 80, Qt.AlignCenter, "Tim Hölzer")
+
+    painter.setPen(QColor("#CFEAFC"))
+    painter.setFont(QFont("Arial", 22, QFont.Bold))
+    painter.drawText(0, 296, 900, 42, Qt.AlignCenter, "Tim Hölzer")
 
     painter.setPen(QColor("#E2F3FF"))
     painter.setFont(QFont("Arial", 24, QFont.Bold))
-    painter.drawText(0, 320, 900, 42, Qt.AlignCenter, "Hi, willkommen zu Tims Homeplanung")
-
-    painter.setPen(QColor("#9DC2E2"))
-    painter.setFont(QFont("Arial", 15, QFont.DemiBold))
-    painter.drawText(0, 364, 900, 34, Qt.AlignCenter, "Ein Projekt von Tim Hölzer")
+    painter.drawText(0, 336, 900, 42, Qt.AlignCenter, "Hi, willkommen zu Homeplanung")
 
     painter.setPen(QColor("#89A9C7"))
     painter.setFont(QFont("Arial", 12))
-    painter.drawText(0, 408, 900, 28, Qt.AlignCenter, "Lege optional dein eigenes Logo unter data/logo.png ab.")
+    painter.drawText(0, 396, 900, 28, Qt.AlignCenter, "Lege optional dein Logo unter data/logo.png oder data/logo.jpg ab.")
     painter.end()
 
     splash = QSplashScreen(pixmap)
