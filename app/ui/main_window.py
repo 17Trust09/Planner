@@ -37,6 +37,9 @@ from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
 
 
+AUTO_NETWORK_GLOBAL_KEYS = {"global_switch_size", "global_switch_poe", "global_ap_count"}
+
+
 class MissingFieldsDialog(QDialog):
     def __init__(self, missing: list[MissingRequiredField], parent: QWidget | None = None):
         super().__init__(parent)
@@ -183,7 +186,7 @@ class MainWindow(QMainWindow):
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
 
-        rooms_root = QTreeWidgetItem(["Räume nach Etage"])
+        rooms_root = QTreeWidgetItem(["Hausbereiche"])
         rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
         self.nav.addTopLevelItem(rooms_root)
 
@@ -205,7 +208,8 @@ class MainWindow(QMainWindow):
 
     def _build_pages(self) -> None:
         self.stack.addWidget(self.start_page)
-        self.global_page = TopicPage("Global_Planung", GLOBAL_TOPICS, self.current_project.global_topics)
+        visible_global_topics = [t for t in GLOBAL_TOPICS if t.key not in AUTO_NETWORK_GLOBAL_KEYS]
+        self.global_page = TopicPage("Global_Planung", visible_global_topics, self.current_project.global_topics)
         self.global_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.global_page)
 
@@ -239,7 +243,7 @@ class MainWindow(QMainWindow):
             self,
             "Hilfe: Navigation",
             "Projektübersicht enthält Start, Global, Preise und Auswertung.\n"
-            "Unter 'Räume nach Etage' findest du Außenbereich und alle Innenräume.\n"
+            "Unter 'Hausbereiche' findest du Außenbereich und alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
 
