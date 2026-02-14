@@ -69,25 +69,25 @@ def _create_splash() -> QSplashScreen:
 
     logo_pixmap = _load_logo_pixmap()
     if logo_pixmap is not None:
-        scaled = logo_pixmap.scaled(420, 220, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled = logo_pixmap.scaled(360, 210, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         x = (900 - scaled.width()) // 2
-        painter.drawPixmap(x, 80, scaled)
+        painter.drawPixmap(x, 72, scaled)
     else:
         painter.setPen(QColor("#bfefff"))
         painter.setFont(QFont("Arial", 42, QFont.Black))
         painter.drawText(0, 145, 900, 80, Qt.AlignCenter, "Tim Hölzer")
 
-    painter.setPen(QColor("#CFEAFC"))
-    painter.setFont(QFont("Arial", 22, QFont.Bold))
-    painter.drawText(0, 296, 900, 42, Qt.AlignCenter, "Tim Hölzer")
-
-    painter.setPen(QColor("#E2F3FF"))
+    painter.setPen(QColor("#EAF6FF"))
     painter.setFont(QFont("Arial", 24, QFont.Bold))
-    painter.drawText(0, 336, 900, 42, Qt.AlignCenter, "Hi, willkommen zu Homeplanung")
+    painter.drawText(0, 302, 900, 40, Qt.AlignCenter, "Tim Hölzer")
 
-    painter.setPen(QColor("#89A9C7"))
-    painter.setFont(QFont("Arial", 12))
-    painter.drawText(0, 396, 900, 28, Qt.AlignCenter, "Lege dein Logo als data/logo.png (oder .jpg/.jpeg/.webp) ab – alternativ wird das erste Bild in /data genutzt.")
+    painter.setPen(QColor("#B9DFFF"))
+    painter.setFont(QFont("Arial", 16, QFont.DemiBold))
+    painter.drawText(0, 344, 900, 32, Qt.AlignCenter, "Homeplanung")
+
+    painter.setPen(QColor("#7EA8CC"))
+    painter.setFont(QFont("Arial", 11))
+    painter.drawText(0, 388, 900, 24, Qt.AlignCenter, "Smart Home · Elektrik · IT-Netzwerk")
     painter.end()
 
     splash = QSplashScreen(pixmap)
