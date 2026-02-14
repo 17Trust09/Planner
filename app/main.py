@@ -122,6 +122,15 @@ def main() -> int:
             color: #e5e7eb;
         }
 
+        QLabel#projectInfo {
+            background: #0b1324;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 8px;
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+
         QWidget#topicCard {
             background: #0f172a;
             border: 1px solid #2b3a55;
