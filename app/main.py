@@ -22,7 +22,14 @@ def _load_logo_pixmap() -> QPixmap | None:
     # Reihenfolge bewusst: erst benutzernahe Orte (neben EXE / aktueller Ordner),
     # danach Bundle-Verzeichnisse. So funktioniert One-File-EXE zuverlässig.
     search_bases = []
-    for base in [exe_dir, argv0_dir, Path.cwd(), meipass_dir]:
+    for base in [
+        exe_dir,
+        exe_dir.parent,
+        argv0_dir,
+        argv0_dir.parent,
+        Path.cwd(),
+        meipass_dir,
+    ]:
         resolved = base.resolve()
         if resolved not in search_bases:
             search_bases.append(resolved)
