@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QHBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, network_rollup, room_score, topic_metrics
@@ -22,18 +33,32 @@ class EvaluationPage(QWidget):
         head.addWidget(help_btn)
 
         self.layout.addLayout(head)
+
         self.table = QTableWidget()
-        self.summary = QTextEdit()
-        self.summary.setReadOnly(True)
-        self.layout.addWidget(self.table)
-        self.layout.addWidget(self.summary)
+        self.layout.addWidget(self.table, 2)
+
+        self.detail_tabs = QTabWidget()
+        self.metrics_view = QTextEdit()
+        self.metrics_view.setReadOnly(True)
+        self.network_view = QTextEdit()
+        self.network_view.setReadOnly(True)
+        self.score_view = QTextEdit()
+        self.score_view.setReadOnly(True)
+        self.conflicts_view = QTextEdit()
+        self.conflicts_view.setReadOnly(True)
+
+        self.detail_tabs.addTab(self.metrics_view, "Kennzahlen")
+        self.detail_tabs.addTab(self.network_view, "Netzwerk")
+        self.detail_tabs.addTab(self.score_view, "Raum-Ampeln")
+        self.detail_tabs.addTab(self.conflicts_view, "Konflikte")
+        self.layout.addWidget(self.detail_tabs, 1)
 
     def _show_help(self) -> None:
         QMessageBox.information(
             self,
             "Hilfe: Auswertung",
-            "Hier werden alle Antworten raumübergreifend zusammengefasst.\n"
-            "Zusätzlich gibt es getrennte Summen für LAN-Dosen und Access-Points (PoE) plus Switch-Empfehlung.",
+            "Die Auswertung ist in Tabs gegliedert: Kennzahlen, Netzwerk, Raum-Ampeln und Konflikte.\n"
+            "So sind die Infos übersichtlicher und leichter zu lesen.",
         )
 
     def refresh(self, project: Project) -> None:
@@ -55,45 +80,52 @@ class EvaluationPage(QWidget):
         conflicts = detect_conflicts(project)
         net = network_rollup(project)
 
-        lines = ["Kennzahlen / Konflikte:"]
+        metric_lines = ["Themen-Metriken:"]
         for topic, m in metrics.items():
-            lines.append(f"- {topic}: Räume {m['rooms_with_selection']}/{m['room_count']} | Diversity {m['diversity']} | Dominanz {m['dominant_ratio']:.2f}")
+            metric_lines.append(
+                f"• {topic}: Räume {m['rooms_with_selection']}/{m['room_count']} | "
+                f"Diversity {m['diversity']} | Dominanz {m['dominant_ratio']:.2f}"
+            )
+        self.metrics_view.setPlainText("\n".join(metric_lines))
 
-        lines.append("\nNetzwerk-Gesamtsumme:")
+        network_lines = ["Netzwerk-Gesamtsumme:"]
         if not net["client_ports_by_room"] and not net["ap_count_by_room"]:
-            lines.append("- Noch keine LAN-/AP-Angaben je Raum erfasst.")
+            network_lines.append("• Noch keine LAN-/AP-Angaben je Raum erfasst.")
         else:
-            lines.append("- LAN-Dosen / Client-Kabel je Raum:")
+            network_lines.append("\nLAN-Dosen / Client-Kabel je Raum:")
             if not net["client_ports_by_room"]:
-                lines.append("  - Keine LAN-Dosen geplant")
+                network_lines.append("• Keine LAN-Dosen geplant")
             else:
                 for room, amount in net["client_ports_by_room"].items():
-                    lines.append(f"  - {room}: {amount} Port(s)")
+                    network_lines.append(f"• {room}: {amount} Port(s)")
 
-            lines.append("- Access Points (PoE) je Raum:")
+            network_lines.append("\nAccess Points (PoE) je Raum:")
             if not net["ap_count_by_room"]:
-                lines.append("  - Keine APs geplant")
+                network_lines.append("• Keine APs geplant")
             else:
                 for room, amount in net["ap_count_by_room"].items():
-                    lines.append(f"  - {room}: {amount} AP(s)")
+                    network_lines.append(f"• {room}: {amount} AP(s)")
 
-            lines.append(f"- Summe LAN-Dosen/Client-Kabel: {net['total_client_ports']}")
-            lines.append(f"- Summe APs: {net['total_ap_count']}")
-            lines.append(f"- Zusätzliche AP-PoE-Kabel: {net['total_ap_poe_cables']}")
-            lines.append(f"- Gesamtsumme Kabel (Dosen + AP): {net['total_cables']}")
-            lines.append(f"- Empfehlung mit Reserve/Uplink: {net['ports_with_overhead']} Ports")
-            lines.append(f"- Empfohlene Switch-Größe: {net['recommended_switch']}")
+            network_lines.append("\nSummen:")
+            network_lines.append(f"• LAN-Dosen/Client-Kabel: {net['total_client_ports']}")
+            network_lines.append(f"• APs: {net['total_ap_count']}")
+            network_lines.append(f"• AP-PoE-Kabel: {net['total_ap_poe_cables']}")
+            network_lines.append(f"• Gesamtkabel (Dosen + AP): {net['total_cables']}")
+            network_lines.append(f"• Empfehlung inkl. Reserve/Uplink: {net['ports_with_overhead']} Ports")
+            network_lines.append(f"• Empfohlene Switch-Größe: {net['recommended_switch']}")
+        self.network_view.setPlainText("\n".join(network_lines))
 
-        lines.append("\nRaum-Ampeln:")
+        score_lines = ["Raum-Ampeln:"]
         for room, s in scores.items():
-            lines.append(f"- {room}: {s['ampel']} ({s['value']}) | Konflikte: {s['conflicts']}")
+            score_lines.append(f"• {room}: {s['ampel']} ({s['value']}) | Konflikte: {s['conflicts']}")
+        self.score_view.setPlainText("\n".join(score_lines))
 
-        lines.append("\nKonfliktliste:")
+        conflict_lines = ["Konfliktliste:"]
         if not conflicts:
-            lines.append("- Keine Konflikte gefunden")
+            conflict_lines.append("• Keine Konflikte gefunden")
         else:
             for room, items in conflicts.items():
+                conflict_lines.append(f"\n{room}:")
                 for item in items:
-                    lines.append(f"- {room}: {item}")
-
-        self.summary.setPlainText("\n".join(lines))
+                    conflict_lines.append(f"• {item}")
+        self.conflicts_view.setPlainText("\n".join(conflict_lines))

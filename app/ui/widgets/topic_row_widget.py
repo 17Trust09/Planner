@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -18,6 +19,12 @@ from PySide6.QtWidgets import (
 
 from app.models.definitions import OPTION_SETS, TopicDefinition
 from app.models.project import TopicState
+
+
+class NoWheelComboBox(QComboBox):
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        # Verhindert unbeabsichtigte Änderungen per Mausrad beim Hovern.
+        event.ignore()
 
 
 class TopicRowWidget(QWidget):
@@ -91,7 +98,7 @@ class TopicRowWidget(QWidget):
     def add_combo(self, emit: bool = True) -> None:
         if len(self.combos) >= self.definition.max_selections:
             return
-        combo = QComboBox()
+        combo = NoWheelComboBox()
         combo.addItem("")
         combo.addItems(OPTION_SETS[self.definition.option_set])
         combo.currentTextChanged.connect(lambda _: self._combo_changed(combo))
