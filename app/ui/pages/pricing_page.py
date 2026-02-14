@@ -79,7 +79,7 @@ class PricingPage(QWidget):
         self.switch_split_threshold_ports = QLineEdit()
         self.switch_split_poe_ratio = QLineEdit()
         for w in [self.meters_per_run, self.switch_split_threshold_ports, self.switch_split_poe_ratio]:
-            w.textChanged.connect(self.changed.emit)
+            w.textChanged.connect(lambda *_: self.changed.emit())
 
         base_form.addRow("CAT7 Meter je Kabelweg", self.meters_per_run)
         base_form.addRow("Switch-Split ab Portanzahl", self.switch_split_threshold_ports)
@@ -99,7 +99,7 @@ class PricingPage(QWidget):
             max_edit.setPlaceholderText("max")
             for w in [min_edit, typ_edit, max_edit]:
                 w.setFixedWidth(90)
-                w.textChanged.connect(self.changed.emit)
+                w.textChanged.connect(lambda *_: self.changed.emit())
                 row.addWidget(w)
             row.addStretch()
             range_layout.addLayout(row)

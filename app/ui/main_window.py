@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -153,6 +154,7 @@ class MainWindow(QMainWindow):
 
         self.start_page = StartPage()
         self.start_page.load_requested.connect(self._load_from_start)
+        self.start_page.rename_requested.connect(self._rename_project_from_start)
         self.eval_page = EvaluationPage()
         self.room_pages: dict[str, TopicPage] = {}
 
@@ -305,7 +307,12 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentWidget(page)
 
     def _new_project(self) -> None:
-        self.current_project = create_empty_project("Projekt Neu")
+        suggested_name = "Projekt Neu"
+        name, ok = QInputDialog.getText(self, "Neues Projekt", "Projektname:", text=suggested_name)
+        if not ok:
+            return
+        project_name = (name or "").strip() or suggested_name
+        self.current_project = create_empty_project(project_name)
         self.current_path = None
         self._rebuild_for_project()
 
@@ -317,6 +324,7 @@ class MainWindow(QMainWindow):
         self.room_pages.clear()
         self.start_page = StartPage()
         self.start_page.load_requested.connect(self._load_from_start)
+        self.start_page.rename_requested.connect(self._rename_project_from_start)
         self.eval_page = EvaluationPage()
         self._build_pages()
         self.refresh_start()
@@ -356,6 +364,32 @@ class MainWindow(QMainWindow):
             return
         self.current_path = Path(path)
         self._rebuild_for_project()
+
+    def _rename_project_from_start(self, path: str) -> None:
+        project_path = Path(path)
+        try:
+            project = load_project(project_path)
+        except (FileNotFoundError, ValueError) as exc:
+            QMessageBox.critical(self, "Fehler", str(exc))
+            return
+
+        current_name = project.metadata.project_name or "Projekt"
+        new_name, ok = QInputDialog.getText(self, "Projekt umbenennen", "Neuer Projektname:", text=current_name)
+        if not ok:
+            return
+
+        final_name = (new_name or "").strip()
+        if not final_name or final_name == current_name:
+            return
+
+        project.metadata.project_name = final_name
+        save_project(project, project_path)
+
+        if self.current_path and self.current_path == project_path:
+            self.current_project.metadata.project_name = final_name
+            self.current_project.touch()
+
+        self.refresh_start()
 
     def refresh_start(self) -> None:
         self.start_page.set_projects(list_projects())
