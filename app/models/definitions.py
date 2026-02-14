@@ -100,10 +100,10 @@ OPTION_SETS: Dict[str, List[str]] = {
         "Kein zusätzlicher Switch", "8 Ports", "16 Ports", "24 Ports", "48 Ports", "Mehrere Switches",
     ],
     "LAN_PORT_COUNT_OPTIONS": [
-        "Keine LAN-Ports", "1 Port", "2 Ports", "4 Ports", "6+ Ports", "Reserveport einplanen",
+        "Keine LAN-Ports", "1 Port", "2 Ports", "3 Ports", "4 Ports", "5 Ports", "6 Ports", "7 Ports", "8 Ports", "9 Ports", "10 Ports",
     ],
     "AP_PLAN_OPTIONS": [
-        "Kein AP im Raum", "AP im Raum", "AP in Flur/nahe Raum", "Optional bei Bedarf", "Meshing statt Kabel-AP",
+        "0 AP", "1 AP", "2 AP", "3 AP", "4 AP",
     ],
 }
 
@@ -169,8 +169,8 @@ ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2),
 
     TopicDefinition("room_network", "NETZWERK", "Netzwerk", "LAN/WLAN/PoE im Raum", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
-    TopicDefinition("room_lan_ports", "NETZWERK", "LAN-Kabel pro Raum", "Wie viele Netzwerkkabel/LAN-Ports sollen verlegt werden", "LAN_PORT_COUNT_OPTIONS", [DOMAIN_IT], True, 2),
-    TopicDefinition("room_access_point", "NETZWERK", "Access Point im Raum", "Soll der Raum selbst einen AP erhalten", "AP_PLAN_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("room_lan_ports", "NETZWERK", "LAN-Kabel pro Raum", "Wie viele LAN-Dosen/Client-Kabel sollen im Raum verlegt werden (ohne Access Points)", "LAN_PORT_COUNT_OPTIONS", [DOMAIN_IT], True, 1),
+    TopicDefinition("room_access_point", "NETZWERK", "Access Points im Raum", "Wie viele Access Points werden in diesem Raum geplant (PoE-Deckenleitung)", "AP_PLAN_OPTIONS", [DOMAIN_IT], True, 1),
     TopicDefinition("room_coverage", "NETZWERK", "Netzabdeckung Raum", "Abdeckungsziel pro Raum", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_power", "NETZWERK", "Steckdosen & Messung", "Schalt-/Messbedarf", "POWER_OPTIONS", [DOMAIN_ELEC, DOMAIN_SMART]),
 

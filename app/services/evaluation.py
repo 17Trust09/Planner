@@ -62,30 +62,44 @@ def room_score(project: Project) -> Dict[str, dict]:
 
 
 def network_rollup(project: Project) -> dict:
-    ports_by_room: Dict[str, int] = {}
+    client_ports_by_room: Dict[str, int] = {}
+    ap_count_by_room: Dict[str, int] = {}
 
-    base_map = {
-        "Keine LAN-Ports": 0,
-        "1 Port": 1,
-        "2 Ports": 2,
-        "4 Ports": 4,
-        "6+ Ports": 6,
+    lan_map = {"Keine LAN-Ports": 0, "6+ Ports": 6}
+    for amount in range(1, 11):
+        lan_map[f"{amount} Port"] = amount
+        lan_map[f"{amount} Ports"] = amount
+
+    ap_map = {
+        "0 AP": 0, "1 AP": 1, "2 AP": 2, "3 AP": 3, "4 AP": 4,
+        "Kein AP im Raum": 0, "AP im Raum": 1, "AP in Flur/nahe Raum": 1, "Optional bei Bedarf": 0, "Meshing statt Kabel-AP": 0,
     }
 
     for room_name, room in project.rooms.items():
-        selections = room.topics.get("room_lan_ports").selections if room.topics.get("room_lan_ports") else []
-        port_count = 0
-        for selection in selections:
-            if selection in base_map:
-                port_count = max(port_count, base_map[selection])
-        if "Reserveport einplanen" in selections:
-            port_count += 1
-        if port_count > 0:
-            ports_by_room[room_name] = port_count
+        lan_selections = room.topics.get("room_lan_ports").selections if room.topics.get("room_lan_ports") else []
+        ap_selections = room.topics.get("room_access_point").selections if room.topics.get("room_access_point") else []
 
-    total_ports = sum(ports_by_room.values())
-    total_cables = total_ports
-    planned_with_overhead = ceil(total_ports * 1.2) + 2 if total_ports else 0
+        client_ports = 0
+        for selection in lan_selections:
+            if selection in lan_map:
+                client_ports = max(client_ports, lan_map[selection])
+
+        ap_count = 0
+        for selection in ap_selections:
+            if selection in ap_map:
+                ap_count = max(ap_count, ap_map[selection])
+
+        if client_ports > 0:
+            client_ports_by_room[room_name] = client_ports
+        if ap_count > 0:
+            ap_count_by_room[room_name] = ap_count
+
+    total_client_ports = sum(client_ports_by_room.values())
+    total_ap_count = sum(ap_count_by_room.values())
+    total_ap_poe_cables = total_ap_count
+    total_cables = total_client_ports + total_ap_poe_cables
+
+    planned_with_overhead = ceil(total_cables * 1.2) + 2 if total_cables else 0
 
     if planned_with_overhead <= 8:
         switch = "8 Ports"
@@ -99,8 +113,11 @@ def network_rollup(project: Project) -> dict:
         switch = "Mehrere Switches oder 48+ Ports"
 
     return {
-        "ports_by_room": ports_by_room,
-        "total_ports": total_ports,
+        "client_ports_by_room": client_ports_by_room,
+        "ap_count_by_room": ap_count_by_room,
+        "total_client_ports": total_client_ports,
+        "total_ap_count": total_ap_count,
+        "total_ap_poe_cables": total_ap_poe_cables,
         "total_cables": total_cables,
         "ports_with_overhead": planned_with_overhead,
         "recommended_switch": switch,

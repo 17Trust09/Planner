@@ -33,7 +33,7 @@ class EvaluationPage(QWidget):
             self,
             "Hilfe: Auswertung",
             "Hier werden alle Antworten raumübergreifend zusammengefasst.\n"
-            "Zusätzlich gibt es eine LAN-Gesamtsumme (Ports/Kabel) plus Switch-Empfehlung.",
+            "Zusätzlich gibt es getrennte Summen für LAN-Dosen und Access-Points (PoE) plus Switch-Empfehlung.",
         )
 
     def refresh(self, project: Project) -> None:
@@ -60,13 +60,27 @@ class EvaluationPage(QWidget):
             lines.append(f"- {topic}: Räume {m['rooms_with_selection']}/{m['room_count']} | Diversity {m['diversity']} | Dominanz {m['dominant_ratio']:.2f}")
 
         lines.append("\nNetzwerk-Gesamtsumme:")
-        if not net["ports_by_room"]:
-            lines.append("- Noch keine LAN-Ports je Raum erfasst.")
+        if not net["client_ports_by_room"] and not net["ap_count_by_room"]:
+            lines.append("- Noch keine LAN-/AP-Angaben je Raum erfasst.")
         else:
-            for room, amount in net["ports_by_room"].items():
-                lines.append(f"- {room}: {amount} Port(s) / Kabel")
-            lines.append(f"- Gesamtsumme Ports: {net['total_ports']}")
-            lines.append(f"- Gesamtsumme Kabel: {net['total_cables']}")
+            lines.append("- LAN-Dosen / Client-Kabel je Raum:")
+            if not net["client_ports_by_room"]:
+                lines.append("  - Keine LAN-Dosen geplant")
+            else:
+                for room, amount in net["client_ports_by_room"].items():
+                    lines.append(f"  - {room}: {amount} Port(s)")
+
+            lines.append("- Access Points (PoE) je Raum:")
+            if not net["ap_count_by_room"]:
+                lines.append("  - Keine APs geplant")
+            else:
+                for room, amount in net["ap_count_by_room"].items():
+                    lines.append(f"  - {room}: {amount} AP(s)")
+
+            lines.append(f"- Summe LAN-Dosen/Client-Kabel: {net['total_client_ports']}")
+            lines.append(f"- Summe APs: {net['total_ap_count']}")
+            lines.append(f"- Zusätzliche AP-PoE-Kabel: {net['total_ap_poe_cables']}")
+            lines.append(f"- Gesamtsumme Kabel (Dosen + AP): {net['total_cables']}")
             lines.append(f"- Empfehlung mit Reserve/Uplink: {net['ports_with_overhead']} Ports")
             lines.append(f"- Empfohlene Switch-Größe: {net['recommended_switch']}")
 
