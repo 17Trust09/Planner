@@ -12,6 +12,7 @@ class TopicState:
     selections: List[str] = field(default_factory=list)
     notes: str = ""
     assignee: str = ""
+    quantities: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

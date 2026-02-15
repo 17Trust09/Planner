@@ -214,11 +214,15 @@ def estimate_project_costs(project: Project) -> dict:
 
     for room in project.rooms.values():
         for key in ["room_sensor_general", "room_climate_sensors"]:
-            for selection in room.topics[key].selections:
-                sensor_counts[selection] = sensor_counts.get(selection, 0) + 1
+            topic_state = room.topics[key]
+            for selection in topic_state.selections:
+                quantity = topic_state.quantities.get(selection, 1) if isinstance(topic_state.quantities, dict) else 1
+                sensor_counts[selection] = sensor_counts.get(selection, 0) + max(1, int(quantity))
 
-    for selection in project.outdoor_topics["outdoor_smart_sensors"].selections:
-        sensor_counts[selection] = sensor_counts.get(selection, 0) + 1
+    outdoor_topic = project.outdoor_topics["outdoor_smart_sensors"]
+    for selection in outdoor_topic.selections:
+        quantity = outdoor_topic.quantities.get(selection, 1) if isinstance(outdoor_topic.quantities, dict) else 1
+        sensor_counts[selection] = sensor_counts.get(selection, 0) + max(1, int(quantity))
 
     for selection, quantity in sorted(sensor_counts.items()):
         mapping = sensor_mapping.get(selection)

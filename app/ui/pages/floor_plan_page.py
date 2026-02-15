@@ -274,17 +274,29 @@ class FloorPlanPage(QWidget):
                 if topic:
                     sensor_selections.extend(topic.selections)
 
+            sensor_quantities: Dict[str, int] = {}
+            for sensor_key in ["room_sensor_general", "room_climate_sensors"]:
+                topic = room.topics.get(sensor_key)
+                if topic and isinstance(topic.quantities, dict):
+                    for sensor_name, quantity in topic.quantities.items():
+                        try:
+                            sensor_quantities[sensor_name] = max(sensor_quantities.get(sensor_name, 0), int(quantity))
+                        except (TypeError, ValueError):
+                            sensor_quantities[sensor_name] = max(sensor_quantities.get(sensor_name, 0), 1)
+
             for sensor_name in sensor_selections:
-                floor_tokens.append(
-                    PlacementToken(
-                        token_id=f"{room.name}|sensor|{_slug(sensor_name)}|{sensor_index}",
-                        room_name=room.name,
-                        item_type=f"Sensor: {sensor_name}",
-                        label=f"{room.name} {sensor_name}",
-                        marker_kind="sensor",
+                count = max(1, sensor_quantities.get(sensor_name, 1))
+                for local_index in range(1, count + 1):
+                    floor_tokens.append(
+                        PlacementToken(
+                            token_id=f"{room.name}|sensor|{_slug(sensor_name)}|{sensor_index}",
+                            room_name=room.name,
+                            item_type=f"Sensor: {sensor_name}",
+                            label=f"{room.name} {sensor_name} {local_index}",
+                            marker_kind="sensor",
+                        )
                     )
-                )
-                sensor_index += 1
+                    sensor_index += 1
 
     def _select_floor(self, floor: str) -> None:
         self.current_floor = floor

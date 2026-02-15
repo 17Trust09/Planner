@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Dict, List
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QWheelEvent
@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
 from app.models.definitions import OPTION_SETS, TopicDefinition
 from app.models.project import TopicState
 
+SENSOR_TOPIC_KEYS = {"room_sensor_general", "room_climate_sensors"}
+
 
 class NoWheelComboBox(QComboBox):
     def wheelEvent(self, event: QWheelEvent) -> None:
@@ -36,6 +38,8 @@ class TopicRowWidget(QWidget):
         self.state = state
         self.combos: List[QComboBox] = []
         self._all_options = OPTION_SETS[self.definition.option_set]
+        self.is_sensor_topic = self.definition.key in SENSOR_TOPIC_KEYS
+        self.quantity_inputs: Dict[str, QLineEdit] = {}
 
         self.setObjectName("topicCard")
 
@@ -76,6 +80,14 @@ class TopicRowWidget(QWidget):
         top.addLayout(controls, 0, 1)
         main.addLayout(top)
 
+        self.quantity_container = QWidget()
+        self.quantity_layout = QGridLayout(self.quantity_container)
+        self.quantity_layout.setContentsMargins(0, 0, 0, 0)
+        self.quantity_layout.setHorizontalSpacing(8)
+        self.quantity_layout.setVerticalSpacing(6)
+        self.quantity_container.setVisible(self.is_sensor_topic)
+        main.addWidget(self.quantity_container)
+
         self.assignee = QLineEdit()
         self.assignee.setPlaceholderText("Verantwortlich (z. B. Elektriker)")
         self.assignee.setText(state.assignee)
@@ -96,6 +108,7 @@ class TopicRowWidget(QWidget):
                 self.combos[i].setCurrentText(val)
 
         self._refresh_all_combo_options()
+        self._sync_quantity_inputs(emit=False)
         self._update_buttons()
 
     def _selected_values(self) -> list[str]:
@@ -139,6 +152,7 @@ class TopicRowWidget(QWidget):
         self.combo_container.addWidget(combo)
 
         self._refresh_all_combo_options()
+        self._sync_quantity_inputs(emit=False)
         self._update_buttons()
         if emit:
             self._emit()
@@ -149,6 +163,7 @@ class TopicRowWidget(QWidget):
         combo = self.combos.pop()
         combo.setParent(None)
         self._refresh_all_combo_options()
+        self._sync_quantity_inputs(emit=False)
         self._update_buttons()
         self._emit()
 
@@ -163,8 +178,56 @@ class TopicRowWidget(QWidget):
                     break
 
         self._refresh_all_combo_options()
+        self._sync_quantity_inputs(emit=False)
         self._update_buttons()
         self._emit()
+
+    def _sync_quantity_inputs(self, emit: bool = True) -> None:
+        if not self.is_sensor_topic:
+            return
+
+        selections = self._selected_values()
+        existing_values = {
+            key: _safe_int(input_widget.text()) for key, input_widget in self.quantity_inputs.items()
+        }
+
+        while self.quantity_layout.count():
+            item = self.quantity_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        self.quantity_inputs.clear()
+
+        if not selections:
+            hint = QLabel("Wähle Sensoren aus, dann kannst du die Anzahl je Sensor eingeben.")
+            hint.setStyleSheet("color:#94a3b8;")
+            self.quantity_layout.addWidget(hint, 0, 0, 1, 2)
+            return
+
+        for row_index, selection in enumerate(selections):
+            label = QLabel(f"Anzahl {selection}")
+            edit = QLineEdit()
+            edit.setPlaceholderText("z. B. 1")
+            value = self.state.quantities.get(selection, existing_values.get(selection, 1))
+            edit.setText(str(max(1, value)))
+            edit.textChanged.connect(self._emit)
+
+            self.quantity_layout.addWidget(label, row_index, 0)
+            self.quantity_layout.addWidget(edit, row_index, 1)
+            self.quantity_inputs[selection] = edit
+
+        if emit:
+            self._emit()
+
+    def _quantity_map(self) -> Dict[str, int]:
+        if not self.is_sensor_topic:
+            return {}
+        quantities: Dict[str, int] = {}
+        for selection in self._selected_values():
+            edit = self.quantity_inputs.get(selection)
+            value = _safe_int(edit.text()) if edit else 1
+            quantities[selection] = max(1, value)
+        return quantities
 
     def _update_buttons(self) -> None:
         self.add_btn.setEnabled(self._has_free_option())
@@ -178,7 +241,12 @@ class TopicRowWidget(QWidget):
 
     def get_state(self) -> TopicState:
         selections = self._selected_values()
-        return TopicState(selections=selections, notes=self.notes.toPlainText().strip(), assignee=self.assignee.text().strip())
+        return TopicState(
+            selections=selections,
+            notes=self.notes.toPlainText().strip(),
+            assignee=self.assignee.text().strip(),
+            quantities=self._quantity_map(),
+        )
 
     def _show_help(self) -> None:
         option_lines = []
@@ -195,3 +263,10 @@ class TopicRowWidget(QWidget):
 
     def _emit(self) -> None:
         self.changed.emit()
+
+
+def _safe_int(value: str) -> int:
+    try:
+        return int((value or "").strip())
+    except ValueError:
+        return 1
