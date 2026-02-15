@@ -32,6 +32,7 @@ from app.services.export_pdf import export_project_to_pdf
 from app.services.storage import PROJECTS_DIR, list_projects, load_project, save_project
 from app.services.validation import MissingRequiredField, required_field_entries
 from app.ui.pages.evaluation_page import EvaluationPage
+from app.ui.pages.floor_plan_page import FloorPlanPage
 from app.ui.pages.pricing_page import PricingPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
@@ -186,6 +187,10 @@ class MainWindow(QMainWindow):
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
 
+        floor_plan_item = QTreeWidgetItem(["Grundrisse"])
+        floor_plan_item.setData(0, Qt.UserRole, "floor_plans")
+        overview.addChild(floor_plan_item)
+
         rooms_root = QTreeWidgetItem(["Hausbereiche"])
         rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
         self.nav.addTopLevelItem(rooms_root)
@@ -221,6 +226,10 @@ class MainWindow(QMainWindow):
         self.pricing_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.pricing_page)
 
+        self.floor_plan_page = FloorPlanPage(self.current_project)
+        self.floor_plan_page.changed.connect(self._on_project_changed)
+        self.stack.addWidget(self.floor_plan_page)
+
         self.stack.addWidget(self.eval_page)
         for room_name in self.current_project.rooms.keys():
             page = TopicPage(room_name, ROOM_TOPICS, self.current_project.rooms[room_name].topics)
@@ -242,7 +251,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Hilfe: Navigation",
-            "Projektübersicht enthält Start, Global, Preise und Auswertung.\n"
+            "Projektübersicht enthält Start, Global, Preise, Grundrisse und Auswertung.\n"
             "Unter 'Hausbereiche' findest du Außenbereich und alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
@@ -306,6 +315,11 @@ class MainWindow(QMainWindow):
             self.eval_page.refresh(self.current_project)
             self.stack.setCurrentWidget(self.eval_page)
             return
+        if key == "floor_plans":
+            self._persist_all_pages()
+            self.floor_plan_page.refresh()
+            self.stack.setCurrentWidget(self.floor_plan_page)
+            return
         if isinstance(key, str):
             page = self.room_pages.get(key)
             if page:
@@ -338,6 +352,7 @@ class MainWindow(QMainWindow):
         self.global_page.persist()
         self.outdoor_page.persist()
         self.pricing_page.persist()
+        self.floor_plan_page.persist()
         for page in self.room_pages.values():
             page.persist()
         self._sync_global_network_topics()

@@ -1,0 +1,371 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List
+
+from PySide6.QtCore import QMimeData, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QPen, QPixmap
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QGraphicsEllipseItem,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsSimpleTextItem,
+    QGraphicsView,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from app.models.project import Project
+
+
+@dataclass
+class PlacementToken:
+    token_id: str
+    room_name: str
+    item_type: str
+    label: str
+
+
+class FloorPlanListWidget(QListWidget):
+    def __init__(self):
+        super().__init__()
+        self.setDragEnabled(True)
+        self.setSelectionMode(QListWidget.SingleSelection)
+
+    def startDrag(self, supportedActions):
+        current = self.currentItem()
+        if current is None:
+            return
+        payload = current.data(Qt.UserRole)
+        if not isinstance(payload, str):
+            return
+        drag = QDrag(self)
+        mime = QMimeData()
+        mime.setText(payload)
+        drag.setMimeData(mime)
+        drag.exec(supportedActions)
+
+
+class MarkerItem(QGraphicsEllipseItem):
+    def __init__(self, label: str, token_id: str, room_name: str, item_type: str):
+        super().__init__(-14, -14, 28, 28)
+        self.token_id = token_id
+        self.room_name = room_name
+        self.item_type = item_type
+        self.setBrush(QBrush(QColor("#1d4ed8")))
+        self.setPen(QPen(QColor("#eff6ff"), 1.5))
+        self.setFlag(QGraphicsEllipseItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsEllipseItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsEllipseItem.ItemSendsScenePositionChanges, True)
+
+        self.text = QGraphicsSimpleTextItem(label, self)
+        self.text.setBrush(QBrush(QColor("#e2e8f0")))
+        self.text.setPos(18, -10)
+
+
+class FloorPlanCanvas(QGraphicsView):
+    marker_changed = Signal()
+    token_dropped = Signal(dict)
+
+    def __init__(self):
+        super().__init__()
+        self.setAcceptDrops(True)
+        self.setRenderHints(self.renderHints())
+        self.scene = QGraphicsScene(self)
+        self.setScene(self.scene)
+        self.image_item: QGraphicsPixmapItem | None = None
+        self.marker_items: Dict[str, MarkerItem] = {}
+
+    def set_image(self, pixmap: QPixmap | None) -> None:
+        self.scene.clear()
+        self.marker_items.clear()
+        if pixmap and not pixmap.isNull():
+            self.image_item = QGraphicsPixmapItem(pixmap)
+            self.scene.addItem(self.image_item)
+            self.scene.setSceneRect(self.image_item.boundingRect())
+        else:
+            self.image_item = None
+            self.scene.setSceneRect(0, 0, 900, 600)
+
+    def add_marker(self, token: dict, x: float, y: float) -> None:
+        if self.image_item is None:
+            return
+        marker = MarkerItem(token["label"], token["token_id"], token["room_name"], token["item_type"])
+        marker.setPos(x, y)
+        self.scene.addItem(marker)
+        self.marker_items[token["token_id"]] = marker
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        if self.image_item is None:
+            return
+        payload = event.mimeData().text()
+        parts = payload.split("|", 3)
+        if len(parts) != 4:
+            return
+        token_id, room_name, item_type, label = parts
+        scene_pos = self.mapToScene(event.position().toPoint())
+        self.token_dropped.emit(
+            {
+                "token_id": token_id,
+                "room_name": room_name,
+                "item_type": item_type,
+                "label": label,
+                "x": float(scene_pos.x()),
+                "y": float(scene_pos.y()),
+            }
+        )
+        event.acceptProposedAction()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.marker_changed.emit()
+
+
+class FloorPlanPage(QWidget):
+    changed = Signal()
+
+    def __init__(self, project: Project):
+        super().__init__()
+        self.project = project
+        self.current_floor = next(iter({room.floor for room in project.rooms.values()}), "EG")
+        self.tokens_by_floor: Dict[str, List[PlacementToken]] = {}
+
+        root = QVBoxLayout(self)
+        root.addWidget(QLabel("<h2>Grundriss-Planung</h2>"))
+        hint = QLabel("Lade pro Etage einen Grundriss und ziehe LAN-Dosen/APs aus der Liste auf das Bild.")
+        hint.setStyleSheet("color:#94a3b8;")
+        root.addWidget(hint)
+
+        top_row = QHBoxLayout()
+        self.floor_buttons: Dict[str, QPushButton] = {}
+        for floor in sorted({room.floor for room in project.rooms.values()}):
+            button = QPushButton(floor)
+            button.clicked.connect(lambda _=False, name=floor: self._select_floor(name))
+            self.floor_buttons[floor] = button
+            top_row.addWidget(button)
+        top_row.addStretch()
+        self.btn_upload = QPushButton("Grundrissbild laden")
+        self.btn_upload.clicked.connect(self._upload_image)
+        self.btn_remove = QPushButton("Bild entfernen")
+        self.btn_remove.clicked.connect(self._remove_image)
+        top_row.addWidget(self.btn_upload)
+        top_row.addWidget(self.btn_remove)
+        root.addLayout(top_row)
+
+        self.summary_label = QLabel()
+        root.addWidget(self.summary_label)
+
+        content = QHBoxLayout()
+        self.todo_list = FloorPlanListWidget()
+        self.todo_list.setMinimumWidth(300)
+        self.todo_list.setMaximumWidth(420)
+        self.canvas = FloorPlanCanvas()
+        self.canvas.token_dropped.connect(self._place_token)
+        self.canvas.marker_changed.connect(self._emit_changed)
+
+        content.addWidget(self.todo_list)
+        content.addWidget(self.canvas, 1)
+        root.addLayout(content, 1)
+
+        self._ensure_storage()
+        self._refresh_tokens()
+        self._select_floor(self.current_floor)
+
+    def _ensure_storage(self) -> None:
+        if not hasattr(self.project, "floor_plans") or not isinstance(getattr(self.project, "floor_plans"), dict):
+            self.project.floor_plans = {}
+
+    def _refresh_tokens(self) -> None:
+        self.tokens_by_floor = {}
+        for room in self.project.rooms.values():
+            socket_selections = room.topics.get("room_lan_socket_count").selections if room.topics.get("room_lan_socket_count") else []
+            ap_selections = room.topics.get("room_access_point").selections if room.topics.get("room_access_point") else []
+            sockets = _parse_amount(socket_selections)
+            aps = _parse_amount(ap_selections)
+            floor_tokens = self.tokens_by_floor.setdefault(room.floor, [])
+            for idx in range(1, sockets + 1):
+                floor_tokens.append(
+                    PlacementToken(
+                        token_id=f"{room.name}|lan|{idx}",
+                        room_name=room.name,
+                        item_type="LAN-Dose",
+                        label=f"{room.name} LAN {idx}",
+                    )
+                )
+            for idx in range(1, aps + 1):
+                floor_tokens.append(
+                    PlacementToken(
+                        token_id=f"{room.name}|ap|{idx}",
+                        room_name=room.name,
+                        item_type="Access Point",
+                        label=f"{room.name} AP {idx}",
+                    )
+                )
+
+    def _select_floor(self, floor: str) -> None:
+        self.current_floor = floor
+        for name, button in self.floor_buttons.items():
+            button.setEnabled(name != floor)
+        self._reload_floor_view()
+
+    def refresh(self) -> None:
+        self._reload_floor_view()
+
+    def _reload_floor_view(self) -> None:
+        self._refresh_tokens()
+        self.todo_list.clear()
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        placements = floor_data.get("placements", [])
+        placed_ids = {p.get("token_id") for p in placements}
+
+        pending = [token for token in self.tokens_by_floor.get(self.current_floor, []) if token.token_id not in placed_ids]
+        for token in pending:
+            item = QListWidgetItem(f"{token.label} ({token.item_type})")
+            item.setData(Qt.UserRole, f"{token.token_id}|{token.room_name}|{token.item_type}|{token.label}")
+            self.todo_list.addItem(item)
+
+        room_summaries: Dict[str, Dict[str, int]] = {}
+        for token in self.tokens_by_floor.get(self.current_floor, []):
+            row = room_summaries.setdefault(token.room_name, {"LAN-Dose": 0, "Access Point": 0})
+            row[token.item_type] += 1
+        summary_parts = [
+            f"{room}: {counts['LAN-Dose']} LAN-Dosen, {counts['Access Point']} AP"
+            for room, counts in room_summaries.items()
+        ]
+        self.summary_label.setText(" • ".join(summary_parts) if summary_parts else "Keine platzierbaren Netzwerkobjekte auf dieser Etage.")
+
+        self._load_floor_image_and_markers()
+
+    def _load_floor_image_and_markers(self) -> None:
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        image_path = floor_data.get("image_path", "")
+        pixmap = QPixmap(image_path) if image_path else QPixmap()
+        if image_path and pixmap.isNull():
+            QMessageBox.warning(self, "Grundriss", f"Bild konnte nicht geladen werden:\n{image_path}")
+        self.canvas.set_image(pixmap if not pixmap.isNull() else None)
+
+        if self.canvas.image_item is None:
+            return
+        width = self.canvas.image_item.pixmap().width() or 1
+        height = self.canvas.image_item.pixmap().height() or 1
+
+        for placement in floor_data.get("placements", []):
+            self.canvas.add_marker(
+                {
+                    "token_id": placement.get("token_id", ""),
+                    "room_name": placement.get("room_name", ""),
+                    "item_type": placement.get("item_type", ""),
+                    "label": placement.get("label", ""),
+                },
+                float(placement.get("x", 0.0)) * width,
+                float(placement.get("y", 0.0)) * height,
+            )
+
+    def _place_token(self, placement: dict) -> None:
+        if self.canvas.image_item is None:
+            return
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        placements = [p for p in floor_data.get("placements", []) if p.get("token_id") != placement["token_id"]]
+
+        width = self.canvas.image_item.pixmap().width() or 1
+        height = self.canvas.image_item.pixmap().height() or 1
+
+        bounded_x = max(0.0, min(placement["x"], float(width)))
+        bounded_y = max(0.0, min(placement["y"], float(height)))
+        placement["x"] = bounded_x / width
+        placement["y"] = bounded_y / height
+        placements.append(placement)
+
+        floor_data["placements"] = placements
+        self._reload_floor_view()
+        self.changed.emit()
+
+    def _upload_image(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Grundrissbild wählen",
+            str(Path.cwd()),
+            "Bilder (*.png *.jpg *.jpeg *.bmp *.webp)",
+        )
+        if not file_path:
+            return
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        floor_data["image_path"] = file_path
+        floor_data.setdefault("placements", [])
+        self._reload_floor_view()
+        self.changed.emit()
+
+    def _remove_image(self) -> None:
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        floor_data["image_path"] = ""
+        floor_data["placements"] = []
+        self._reload_floor_view()
+        self.changed.emit()
+
+    def _emit_changed(self) -> None:
+        if self.canvas.image_item is None:
+            return
+        width = self.canvas.image_item.pixmap().width() or 1
+        height = self.canvas.image_item.pixmap().height() or 1
+        floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
+        placements: List[dict] = []
+        for marker in self.canvas.marker_items.values():
+            pos = marker.pos()
+            placements.append(
+                {
+                    "token_id": marker.token_id,
+                    "room_name": marker.room_name,
+                    "item_type": marker.item_type,
+                    "label": marker.text.text(),
+                    "x": max(0.0, min(pos.x(), float(width))) / width,
+                    "y": max(0.0, min(pos.y(), float(height))) / height,
+                }
+            )
+        floor_data["placements"] = placements
+        self.changed.emit()
+
+    def persist(self) -> None:
+        self._emit_changed()
+
+
+
+def _parse_amount(selections: List[str]) -> int:
+    if not selections:
+        return 0
+    mapping = {
+        "0 Dosen": 0,
+        "1 Dose": 1,
+        "2 Dosen": 2,
+        "3 Dosen": 3,
+        "4 Dosen": 4,
+        "5 Dosen": 5,
+        "6 Dosen": 6,
+        "7 Dosen": 7,
+        "8 Dosen": 8,
+        "0 AP": 0,
+        "1 AP": 1,
+        "2 AP": 2,
+        "3 AP": 3,
+        "4 AP": 4,
+    }
+    return max((mapping.get(s, 0) for s in selections), default=0)

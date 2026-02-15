@@ -100,7 +100,6 @@ def _parse_count(selection: str) -> int:
         return int(selection)
 
     mapping = {
-        "Keine LAN-Ports": 0,
         "0 Dosen": 0,
         "1 Dose": 1,
         "2 Dosen": 2,
@@ -114,7 +113,6 @@ def _parse_count(selection: str) -> int:
         "2 Ports je Dose": 2,
         "3 Ports je Dose": 3,
         "4 Ports je Dose": 4,
-        "6+ Ports": 6,
         "0 AP": 0,
         "1 AP": 1,
         "2 AP": 2,
@@ -158,14 +156,11 @@ def network_rollup(project: Project) -> dict:
     for room_name, room in project.rooms.items():
         socket_selections = room.topics.get("room_lan_socket_count").selections if room.topics.get("room_lan_socket_count") else []
         ports_per_socket_selections = room.topics.get("room_lan_ports_per_socket").selections if room.topics.get("room_lan_ports_per_socket") else []
-        legacy_lan_selections = room.topics.get("room_lan_ports").selections if room.topics.get("room_lan_ports") else []
         ap_selections = room.topics.get("room_access_point").selections if room.topics.get("room_access_point") else []
 
         socket_count = max((_parse_count(s) for s in socket_selections), default=0)
         ports_per_socket = max((_parse_count(s) for s in ports_per_socket_selections), default=0)
-        detailed_client_ports = socket_count * ports_per_socket
-        legacy_client_ports = max((_parse_count(s) for s in legacy_lan_selections), default=0)
-        client_ports = detailed_client_ports if detailed_client_ports > 0 else legacy_client_ports
+        client_ports = socket_count * ports_per_socket
         ap_count = max((_parse_count(s) for s in ap_selections), default=0)
 
         if client_ports > 0:
