@@ -69,6 +69,13 @@ Die fertige Datei liegt unter:
 
 Diese EXE enthält das Logo intern. Beim Start entpackt PyInstaller intern temporär (unsichtbar für Endnutzer), daher sind **keine dauerhaften Zusatzordner** neben der EXE erforderlich.
 
+### 4.1) Gilt das auch für Grundrissbilder?
+Ja. Für die neuen Grundriss-Funktionen musst du den Build-Befehl **nicht** erweitern.
+
+- Hochgeladene Grundrissbilder werden beim Speichern des Projekts direkt im Projekt (JSON) mitgespeichert.
+- Dadurch funktionieren Speichern/Laden und Exporte auch in der One-File-EXE ohne zusätzliche Build-Parameter.
+- `--add-data` brauchst du nur für feste App-Assets wie das Splash-Logo.
+
 ### 5) Wie das Logo im Code gefunden wird
 Die App sucht beim Splash-Start an mehreren Orten (u. a. One-File `_MEIPASS`) und bevorzugt `logo.png`/`logo.jpg` unter `data/`.
 Wenn du wie oben mit `--add-data "branding/logo.png;data"` baust, wird das eingebettete Logo automatisch erkannt.
