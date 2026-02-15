@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -25,13 +26,19 @@ from PySide6.QtWidgets import (
 
 from app.models.definitions import FLOORS, GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project, create_empty_project
+from app.services.evaluation import recommended_global_network_topics
 from app.services.export_excel import export_project_to_excel
 from app.services.export_pdf import export_project_to_pdf
 from app.services.storage import PROJECTS_DIR, list_projects, load_project, save_project
 from app.services.validation import MissingRequiredField, required_field_entries
 from app.ui.pages.evaluation_page import EvaluationPage
+from app.ui.pages.floor_plan_page import FloorPlanPage
+from app.ui.pages.pricing_page import PricingPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
+
+
+AUTO_NETWORK_GLOBAL_KEYS = {"global_switch_size", "global_switch_poe", "global_ap_count"}
 
 
 class MissingFieldsDialog(QDialog):
@@ -152,6 +159,7 @@ class MainWindow(QMainWindow):
 
         self.start_page = StartPage()
         self.start_page.load_requested.connect(self._load_from_start)
+        self.start_page.rename_requested.connect(self._rename_project_from_start)
         self.eval_page = EvaluationPage()
         self.room_pages: dict[str, TopicPage] = {}
 
@@ -172,16 +180,24 @@ class MainWindow(QMainWindow):
         global_item = QTreeWidgetItem(["Global"])
         global_item.setData(0, Qt.UserRole, "global")
         overview.addChild(global_item)
-        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
-        outdoor_item.setData(0, Qt.UserRole, "outdoor")
-        overview.addChild(outdoor_item)
+        pricing_item = QTreeWidgetItem(["Preise"])
+        pricing_item.setData(0, Qt.UserRole, "pricing")
+        overview.addChild(pricing_item)
         evaluation_item = QTreeWidgetItem(["Auswertung"])
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
 
-        rooms_root = QTreeWidgetItem(["Räume nach Etage"])
+        floor_plan_item = QTreeWidgetItem(["Grundrisse"])
+        floor_plan_item.setData(0, Qt.UserRole, "floor_plans")
+        overview.addChild(floor_plan_item)
+
+        rooms_root = QTreeWidgetItem(["Hausbereiche"])
         rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
         self.nav.addTopLevelItem(rooms_root)
+
+        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
+        outdoor_item.setData(0, Qt.UserRole, "outdoor")
+        rooms_root.addChild(outdoor_item)
 
         for floor, rooms in FLOORS.items():
             floor_item = QTreeWidgetItem([floor])
@@ -197,13 +213,22 @@ class MainWindow(QMainWindow):
 
     def _build_pages(self) -> None:
         self.stack.addWidget(self.start_page)
-        self.global_page = TopicPage("Global_Planung", GLOBAL_TOPICS, self.current_project.global_topics)
+        visible_global_topics = [t for t in GLOBAL_TOPICS if t.key not in AUTO_NETWORK_GLOBAL_KEYS]
+        self.global_page = TopicPage("Global_Planung", visible_global_topics, self.current_project.global_topics)
         self.global_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.global_page)
 
         self.outdoor_page = TopicPage(OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, self.current_project.outdoor_topics)
         self.outdoor_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.outdoor_page)
+
+        self.pricing_page = PricingPage(self.current_project)
+        self.pricing_page.changed.connect(self._on_project_changed)
+        self.stack.addWidget(self.pricing_page)
+
+        self.floor_plan_page = FloorPlanPage(self.current_project)
+        self.floor_plan_page.changed.connect(self._on_project_changed)
+        self.stack.addWidget(self.floor_plan_page)
 
         self.stack.addWidget(self.eval_page)
         for room_name in self.current_project.rooms.keys():
@@ -226,8 +251,8 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Hilfe: Navigation",
-            "Projektübersicht enthält Start, Global, Außenbereich und Auswertung.\n"
-            "Unter 'Räume nach Etage' findest du alle Innenräume.\n"
+            "Projektübersicht enthält Start, Global, Preise, Grundrisse und Auswertung.\n"
+            "Unter 'Hausbereiche' findest du Außenbereich und alle Innenräume.\n"
             "In jeder Frage kannst du über das '?' die Bedeutung der Auswahl sehen.",
         )
 
@@ -282,10 +307,18 @@ class MainWindow(QMainWindow):
         if key == "outdoor":
             self.stack.setCurrentWidget(self.outdoor_page)
             return
+        if key == "pricing":
+            self.stack.setCurrentWidget(self.pricing_page)
+            return
         if key == "evaluation":
             self._persist_all_pages()
             self.eval_page.refresh(self.current_project)
             self.stack.setCurrentWidget(self.eval_page)
+            return
+        if key == "floor_plans":
+            self._persist_all_pages()
+            self.floor_plan_page.refresh()
+            self.stack.setCurrentWidget(self.floor_plan_page)
             return
         if isinstance(key, str):
             page = self.room_pages.get(key)
@@ -293,7 +326,12 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentWidget(page)
 
     def _new_project(self) -> None:
-        self.current_project = create_empty_project("Projekt Neu")
+        suggested_name = "Projekt Neu"
+        name, ok = QInputDialog.getText(self, "Neues Projekt", "Projektname:", text=suggested_name)
+        if not ok:
+            return
+        project_name = (name or "").strip() or suggested_name
+        self.current_project = create_empty_project(project_name)
         self.current_path = None
         self._rebuild_for_project()
 
@@ -305,6 +343,7 @@ class MainWindow(QMainWindow):
         self.room_pages.clear()
         self.start_page = StartPage()
         self.start_page.load_requested.connect(self._load_from_start)
+        self.start_page.rename_requested.connect(self._rename_project_from_start)
         self.eval_page = EvaluationPage()
         self._build_pages()
         self.refresh_start()
@@ -312,8 +351,30 @@ class MainWindow(QMainWindow):
     def _persist_all_pages(self) -> None:
         self.global_page.persist()
         self.outdoor_page.persist()
+        self.pricing_page.persist()
+        self.floor_plan_page.persist()
         for page in self.room_pages.values():
             page.persist()
+        self._sync_global_network_topics()
+
+
+    def _sync_global_network_topics(self) -> None:
+        recommendations = recommended_global_network_topics(self.current_project)
+        for key, selections in recommendations.items():
+            topic_state = self.current_project.global_topics.get(key)
+            if topic_state is None:
+                continue
+            topic_state.selections = selections
+
+            row = self.global_page.rows.get(key)
+            if row is None:
+                continue
+            while len(row.combos) > 1:
+                row.remove_combo()
+            if not row.combos:
+                row.add_combo(emit=False)
+            target = selections[0] if selections else ""
+            row.combos[0].setCurrentText(target)
 
     def _on_project_changed(self) -> None:
         self.current_project.touch()
@@ -343,6 +404,32 @@ class MainWindow(QMainWindow):
             return
         self.current_path = Path(path)
         self._rebuild_for_project()
+
+    def _rename_project_from_start(self, path: str) -> None:
+        project_path = Path(path)
+        try:
+            project = load_project(project_path)
+        except (FileNotFoundError, ValueError) as exc:
+            QMessageBox.critical(self, "Fehler", str(exc))
+            return
+
+        current_name = project.metadata.project_name or "Projekt"
+        new_name, ok = QInputDialog.getText(self, "Projekt umbenennen", "Neuer Projektname:", text=current_name)
+        if not ok:
+            return
+
+        final_name = (new_name or "").strip()
+        if not final_name or final_name == current_name:
+            return
+
+        project.metadata.project_name = final_name
+        save_project(project, project_path)
+
+        if self.current_path and self.current_path == project_path:
+            self.current_project.metadata.project_name = final_name
+            self.current_project.touch()
+
+        self.refresh_start()
 
     def refresh_start(self) -> None:
         self.start_page.set_projects(list_projects())

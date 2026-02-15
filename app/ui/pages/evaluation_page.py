@@ -13,8 +13,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.models.definitions import OUTDOOR_AREA_NAME
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, network_rollup, room_score, topic_metrics
+from app.services.pricing import estimate_project_costs
 from app.services.validation import detect_conflicts
 
 
@@ -46,25 +48,28 @@ class EvaluationPage(QWidget):
         self.score_view.setReadOnly(True)
         self.conflicts_view = QTextEdit()
         self.conflicts_view.setReadOnly(True)
+        self.cost_view = QTextEdit()
+        self.cost_view.setReadOnly(True)
 
         self.detail_tabs.addTab(self.metrics_view, "Kennzahlen")
         self.detail_tabs.addTab(self.network_view, "Netzwerk")
         self.detail_tabs.addTab(self.score_view, "Raum-Ampeln")
         self.detail_tabs.addTab(self.conflicts_view, "Konflikte")
+        self.detail_tabs.addTab(self.cost_view, "Kosten")
         self.layout.addWidget(self.detail_tabs, 1)
 
     def _show_help(self) -> None:
         QMessageBox.information(
             self,
             "Hilfe: Auswertung",
-            "Die Auswertung ist in Tabs gegliedert: Kennzahlen, Netzwerk, Raum-Ampeln und Konflikte.\n"
+            "Die Auswertung ist in Tabs gegliedert: Kennzahlen, Netzwerk, Raum-Ampeln, Konflikte und Kosten.\n"
             "So sind die Infos übersichtlicher und leichter zu lesen.",
         )
 
     def refresh(self, project: Project) -> None:
         matrix = build_room_matrix(project)
         metrics = topic_metrics(project)
-        rooms = list(project.rooms.keys())
+        rooms = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
         topics = list(matrix.keys())
 
         self.table.setRowCount(len(topics))
@@ -79,11 +84,12 @@ class EvaluationPage(QWidget):
         scores = room_score(project)
         conflicts = detect_conflicts(project)
         net = network_rollup(project)
+        pricing = estimate_project_costs(project)
 
         metric_lines = ["Themen-Metriken:"]
         for topic, m in metrics.items():
             metric_lines.append(
-                f"• {topic}: Räume {m['rooms_with_selection']}/{m['room_count']} | "
+                f"• {topic}: Bereiche {m['rooms_with_selection']}/{m['room_count']} | "
                 f"Diversity {m['diversity']} | Dominanz {m['dominant_ratio']:.2f}"
             )
         self.metrics_view.setPlainText("\n".join(metric_lines))
@@ -120,10 +126,22 @@ class EvaluationPage(QWidget):
             network_lines.append(f"• Reserve/Uplink pauschal: {net['reserve_uplink_ports']} Ports")
             network_lines.append(f"• Empfehlung inkl. Reserve/Uplink: {net['ports_with_overhead']} Ports")
             network_lines.append(f"• Empfohlene Switch-Größe: {net['recommended_switch']}")
+            if net["split_recommended"]:
+                network_lines.append("• Hinweis: Wegen hoher Port-/PoE-Last wird ein Switch-Split empfohlen.")
+                network_lines.append(
+                    f"  - PoE-Switch: {net['split_plan']['poe_switch']} ({net['split_plan']['poe_ports']} Ports inkl. Reserve)"
+                )
+                network_lines.append(
+                    f"  - Non-PoE-Switch: {net['split_plan']['client_switch']} ({net['split_plan']['client_ports']} Ports inkl. Reserve)"
+                )
         self.network_view.setPlainText("\n".join(network_lines))
 
         score_lines = ["Raum-Ampeln:"]
-        for room, s in scores.items():
+        score_order = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
+        for room in score_order:
+            s = scores.get(room)
+            if not s:
+                continue
             score_lines.append(f"• {room}: {s['ampel']} ({s['value']}) | Konflikte: {s['conflicts']}")
         self.score_view.setPlainText("\n".join(score_lines))
 
@@ -136,3 +154,29 @@ class EvaluationPage(QWidget):
                 for item in items:
                     conflict_lines.append(f"• {item}")
         self.conflicts_view.setPlainText("\n".join(conflict_lines))
+
+        cost_lines = ["Kostenschätzung (Richtwerte):"]
+        if pricing["switch_split_active"]:
+            cost_lines.append("• Switch-Strategie: Split aktiv (PoE + Non-PoE)")
+        else:
+            cost_lines.append("• Switch-Strategie: Einzelswitch")
+        if not pricing["line_items"]:
+            cost_lines.append("• Noch keine relevanten Komponenten ausgewählt.")
+        else:
+            for item in pricing["line_items"]:
+                c = item["cost"]
+                cost_lines.append(
+                    f"• {item['category']} ({item['quantity']}x): {item['description']} | "
+                    f"{c['min']:.0f}€ / {c['typical']:.0f}€ / {c['max']:.0f}€ (min/typ/max)"
+                )
+
+            t = pricing["totals"]
+            cost_lines.append("\nGesamt:")
+            cost_lines.append(f"• Min: {t['min']:.0f}€")
+            cost_lines.append(f"• Typisch: {t['typical']:.0f}€")
+            cost_lines.append(f"• Max: {t['max']:.0f}€")
+
+        cost_lines.append("\nAnnahmen:")
+        for assumption in pricing["assumptions"]:
+            cost_lines.append(f"• {assumption}")
+        self.cost_view.setPlainText("\n".join(cost_lines))
