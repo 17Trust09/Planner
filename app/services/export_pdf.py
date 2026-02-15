@@ -1,16 +1,35 @@
 from __future__ import annotations
 
+import base64
+from io import BytesIO
 from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.evaluation import room_score
 from app.services.validation import detect_conflicts
+
+
+def _floor_plan_image_bytes(floor_data: dict) -> bytes | None:
+    image_data = floor_data.get("image_data")
+    if image_data:
+        try:
+            return base64.b64decode(str(image_data), validate=True)
+        except (ValueError, TypeError):
+            pass
+
+    image_path = floor_data.get("image_path")
+    if image_path:
+        try:
+            return Path(str(image_path)).read_bytes()
+        except OSError:
+            return None
+    return None
 
 
 def export_project_to_pdf(project: Project, target_file: Path) -> None:
@@ -73,5 +92,39 @@ def export_project_to_pdf(project: Project, target_file: Path) -> None:
             for c in conflicts[room_name]:
                 flow.append(Paragraph(f"• {c}", styles["Normal"]))
         flow.append(Spacer(1, 10))
+
+
+    if project.floor_plans:
+        flow.append(Spacer(1, 12))
+        flow.append(Paragraph("<b>Grundrisse</b>", styles["Heading3"]))
+        for floor, floor_data in sorted(project.floor_plans.items()):
+            if not isinstance(floor_data, dict):
+                continue
+            placements = floor_data.get("placements", [])
+            flow.append(Paragraph(f"Etage: {floor} | Marker: {len(placements)}", styles["Normal"]))
+
+            img_bytes = _floor_plan_image_bytes(floor_data)
+            if img_bytes:
+                try:
+                    img = Image(BytesIO(img_bytes))
+                    max_w = 480
+                    max_h = 280
+                    scale = min(max_w / img.imageWidth, max_h / img.imageHeight, 1.0)
+                    img.drawWidth = img.imageWidth * scale
+                    img.drawHeight = img.imageHeight * scale
+                    flow.append(img)
+                except Exception:
+                    flow.append(Paragraph("(Grundrissbild konnte im PDF nicht eingebettet werden)", styles["Normal"]))
+
+            if placements:
+                marker_lines = [
+                    f"• {p.get('label', 'Marker')} @ ({round(float(p.get('x', 0))*100)}%, {round(float(p.get('y', 0))*100)}%)"
+                    for p in placements
+                ]
+                for line in marker_lines[:20]:
+                    flow.append(Paragraph(line, styles["Normal"]))
+                if len(marker_lines) > 20:
+                    flow.append(Paragraph(f"… +{len(marker_lines)-20} weitere Marker", styles["Normal"]))
+            flow.append(Spacer(1, 8))
 
     doc.build(flow)

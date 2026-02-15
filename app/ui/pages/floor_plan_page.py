@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import base64
 import json
 from pathlib import Path
 from typing import Dict, List
@@ -356,7 +357,15 @@ class FloorPlanPage(QWidget):
         floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
         image_path = floor_data.get("image_path", "")
         pixmap = QPixmap(image_path) if image_path else QPixmap()
-        if image_path and pixmap.isNull():
+
+        if pixmap.isNull() and floor_data.get("image_data"):
+            try:
+                image_bytes = base64.b64decode(str(floor_data.get("image_data")), validate=True)
+                pixmap.loadFromData(image_bytes)
+            except (ValueError, TypeError):
+                pass
+
+        if image_path and pixmap.isNull() and not floor_data.get("image_data"):
             QMessageBox.warning(self, "Grundriss", f"Bild konnte nicht geladen werden:\n{image_path}")
         self.canvas.set_image(pixmap if not pixmap.isNull() else None)
 
@@ -424,12 +433,17 @@ class FloorPlanPage(QWidget):
         floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
         floor_data["image_path"] = file_path
         floor_data.setdefault("placements", [])
+        try:
+            floor_data["image_data"] = base64.b64encode(Path(file_path).read_bytes()).decode("ascii")
+        except OSError:
+            floor_data["image_data"] = ""
         self._reload_floor_view()
         self.changed.emit()
 
     def _remove_image(self) -> None:
         floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
         floor_data["image_path"] = ""
+        floor_data["image_data"] = ""
         floor_data["placements"] = []
         self._reload_floor_view()
         self.changed.emit()
