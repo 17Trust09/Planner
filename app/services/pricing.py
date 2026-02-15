@@ -31,7 +31,20 @@ def default_pricing_settings() -> dict:
             "outdoor_ap": _range(120, 190, 320),
             "outdoor_camera": _range(90, 170, 320),
             "outdoor_doorbell": _range(140, 240, 420),
-            "sensor_standard": _range(20, 45, 120),
+            "sensor_bewegungsmelder": _range(20, 45, 120),
+            "sensor_praesenzmelder": _range(45, 95, 220),
+            "sensor_fensterkontakt": _range(15, 35, 90),
+            "sensor_tuerkontakt": _range(15, 35, 90),
+            "sensor_temperatur": _range(15, 30, 80),
+            "sensor_luftfeuchte": _range(18, 35, 90),
+            "sensor_co2_luftqualitaet": _range(60, 120, 260),
+            "sensor_helligkeit": _range(18, 40, 95),
+            "sensor_outdoor_temperatur": _range(18, 35, 90),
+            "sensor_outdoor_luftfeuchte": _range(20, 40, 95),
+            "sensor_outdoor_helligkeit": _range(20, 42, 100),
+            "sensor_outdoor_bewegungsmelder": _range(35, 80, 190),
+            "sensor_outdoor_wetterstation": _range(90, 180, 420),
+            "sensor_outdoor_smarter_gartenaktor": _range(60, 130, 320),
             "switch_poe_8": _range(95, 160, 300),
             "switch_poe_16": _range(190, 330, 620),
             "switch_poe_24": _range(290, 520, 980),
@@ -79,6 +92,12 @@ def merged_pricing_settings(project: Project) -> dict:
                 pass
 
     if "ranges" in overrides and isinstance(overrides["ranges"], dict):
+        legacy_sensor = overrides["ranges"].get("sensor_standard")
+        sensor_keys = [k for k in merged["ranges"].keys() if k.startswith("sensor_")]
+        for key in sensor_keys:
+            if key not in overrides["ranges"] and legacy_sensor is not None:
+                overrides["ranges"][key] = legacy_sensor
+
         for range_key, fallback in merged["ranges"].items():
             merged["ranges"][range_key] = _sanitize_range(overrides["ranges"].get(range_key), fallback)
 
@@ -175,18 +194,43 @@ def estimate_project_costs(project: Project) -> dict:
             }
         )
 
-    sensor_units = 0
+    sensor_mapping = {
+        "Bewegungsmelder": ("sensor_bewegungsmelder", "Bewegungsmelder"),
+        "Präsenzmelder (mmWave)": ("sensor_praesenzmelder", "Präsenzmelder (mmWave)"),
+        "Fensterkontakt": ("sensor_fensterkontakt", "Fensterkontakt"),
+        "Türkontakt": ("sensor_tuerkontakt", "Türkontakt"),
+        "Temperatur": ("sensor_temperatur", "Temperatursensor"),
+        "Luftfeuchte": ("sensor_luftfeuchte", "Luftfeuchtesensor"),
+        "CO₂ / Luftqualität": ("sensor_co2_luftqualitaet", "CO₂-/Luftqualitätssensor"),
+        "Helligkeit": ("sensor_helligkeit", "Helligkeitssensor"),
+        "Temperatursensor": ("sensor_outdoor_temperatur", "Outdoor Temperatursensor"),
+        "Luftfeuchtesensor": ("sensor_outdoor_luftfeuchte", "Outdoor Luftfeuchtesensor"),
+        "Helligkeitssensor": ("sensor_outdoor_helligkeit", "Outdoor Helligkeitssensor"),
+        "Bewegungsmelder außen": ("sensor_outdoor_bewegungsmelder", "Outdoor Bewegungsmelder"),
+        "Wetterstation": ("sensor_outdoor_wetterstation", "Wetterstation"),
+        "Smarter Gartenaktor": ("sensor_outdoor_smarter_gartenaktor", "Smarter Gartenaktor"),
+    }
+    sensor_counts: Dict[str, int] = {}
+
     for room in project.rooms.values():
-        sensor_units += len(room.topics["room_sensor_general"].selections)
-        sensor_units += len(room.topics["room_climate_sensors"].selections)
-    sensor_units += len(project.outdoor_topics["outdoor_smart_sensors"].selections)
-    if sensor_units > 0:
+        for key in ["room_sensor_general", "room_climate_sensors"]:
+            for selection in room.topics[key].selections:
+                sensor_counts[selection] = sensor_counts.get(selection, 0) + 1
+
+    for selection in project.outdoor_topics["outdoor_smart_sensors"].selections:
+        sensor_counts[selection] = sensor_counts.get(selection, 0) + 1
+
+    for selection, quantity in sorted(sensor_counts.items()):
+        mapping = sensor_mapping.get(selection)
+        if not mapping or quantity <= 0:
+            continue
+        range_key, label = mapping
         line_items.append(
             {
-                "category": "Sensorik gesamt",
-                "description": "Gewählte Sensor-Optionen (Innen + Außen)",
-                "quantity": sensor_units,
-                "cost": _mul(ranges["sensor_standard"], sensor_units),
+                "category": "Sensorik",
+                "description": label,
+                "quantity": quantity,
+                "cost": _mul(ranges[range_key], quantity),
             }
         )
 

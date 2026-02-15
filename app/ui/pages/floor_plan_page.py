@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Dict, List
 
@@ -119,17 +120,20 @@ class FloorPlanCanvas(QGraphicsView):
         if self.image_item is None:
             return
         payload = event.mimeData().text()
-        parts = payload.split("|", 3)
-        if len(parts) != 4:
+        try:
+            token = json.loads(payload)
+        except json.JSONDecodeError:
             return
-        token_id, room_name, item_type, label = parts
+        required_keys = {"token_id", "room_name", "item_type", "label"}
+        if not isinstance(token, dict) or not required_keys.issubset(token.keys()):
+            return
         scene_pos = self.mapToScene(event.position().toPoint())
         self.token_dropped.emit(
             {
-                "token_id": token_id,
-                "room_name": room_name,
-                "item_type": item_type,
-                "label": label,
+                "token_id": str(token["token_id"]),
+                "room_name": str(token["room_name"]),
+                "item_type": str(token["item_type"]),
+                "label": str(token["label"]),
                 "x": float(scene_pos.x()),
                 "y": float(scene_pos.y()),
             }
@@ -168,8 +172,11 @@ class FloorPlanPage(QWidget):
         self.btn_upload.clicked.connect(self._upload_image)
         self.btn_remove = QPushButton("Bild entfernen")
         self.btn_remove.clicked.connect(self._remove_image)
+        self.btn_delete_marker = QPushButton("Marker entfernen")
+        self.btn_delete_marker.clicked.connect(self._delete_selected_markers)
         top_row.addWidget(self.btn_upload)
         top_row.addWidget(self.btn_remove)
+        top_row.addWidget(self.btn_delete_marker)
         root.addLayout(top_row)
 
         self.summary_label = QLabel()
@@ -241,7 +248,18 @@ class FloorPlanPage(QWidget):
         pending = [token for token in self.tokens_by_floor.get(self.current_floor, []) if token.token_id not in placed_ids]
         for token in pending:
             item = QListWidgetItem(f"{token.label} ({token.item_type})")
-            item.setData(Qt.UserRole, f"{token.token_id}|{token.room_name}|{token.item_type}|{token.label}")
+            item.setData(
+                Qt.UserRole,
+                json.dumps(
+                    {
+                        "token_id": token.token_id,
+                        "room_name": token.room_name,
+                        "item_type": token.item_type,
+                        "label": token.label,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
             self.todo_list.addItem(item)
 
         room_summaries: Dict[str, Dict[str, int]] = {}
@@ -299,6 +317,22 @@ class FloorPlanPage(QWidget):
         floor_data["placements"] = placements
         self._reload_floor_view()
         self.changed.emit()
+
+
+    def _delete_selected_markers(self) -> None:
+        if self.canvas.image_item is None:
+            return
+
+        selected = [item for item in self.canvas.scene.selectedItems() if isinstance(item, MarkerItem)]
+        if not selected:
+            return
+
+        for marker in selected:
+            self.canvas.scene.removeItem(marker)
+            self.canvas.marker_items.pop(marker.token_id, None)
+
+        self._emit_changed()
+        self._reload_floor_view()
 
     def _upload_image(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
