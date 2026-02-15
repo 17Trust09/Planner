@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Dict, List
 
 from PySide6.QtCore import QMimeData, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QFontMetrics, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsEllipseItem,
     QGraphicsPixmapItem,
+    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
     QGraphicsView,
@@ -33,6 +34,7 @@ class PlacementToken:
     room_name: str
     item_type: str
     label: str
+    marker_kind: str
 
 
 class FloorPlanListWidget(QListWidget):
@@ -55,21 +57,45 @@ class FloorPlanListWidget(QListWidget):
         drag.exec(supportedActions)
 
 
+def _marker_color(marker_kind: str) -> QColor:
+    palette = {
+        "lan": QColor("#2563eb"),
+        "ap": QColor("#16a34a"),
+        "sensor": QColor("#d97706"),
+    }
+    return palette.get(marker_kind, QColor("#475569"))
+
+
 class MarkerItem(QGraphicsEllipseItem):
-    def __init__(self, label: str, token_id: str, room_name: str, item_type: str):
+    def __init__(self, label: str, token_id: str, room_name: str, item_type: str, marker_kind: str):
         super().__init__(-14, -14, 28, 28)
         self.token_id = token_id
         self.room_name = room_name
         self.item_type = item_type
-        self.setBrush(QBrush(QColor("#1d4ed8")))
-        self.setPen(QPen(QColor("#eff6ff"), 1.5))
+        self.marker_kind = marker_kind
+
+        color = _marker_color(marker_kind)
+        self.setBrush(QBrush(color))
+        self.setPen(QPen(QColor("#f8fafc"), 1.5))
         self.setFlag(QGraphicsEllipseItem.ItemIsMovable, True)
         self.setFlag(QGraphicsEllipseItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsEllipseItem.ItemSendsScenePositionChanges, True)
 
+        self.label_bg = QGraphicsRectItem(self)
+        self.label_bg.setBrush(QBrush(QColor(15, 23, 42, 220)))
+        self.label_bg.setPen(QPen(QColor(148, 163, 184, 200), 1.0))
+
         self.text = QGraphicsSimpleTextItem(label, self)
-        self.text.setBrush(QBrush(QColor("#e2e8f0")))
-        self.text.setPos(18, -10)
+        self.text.setBrush(QBrush(QColor("#f8fafc")))
+
+        metrics = QFontMetrics(self.text.font())
+        text_width = metrics.horizontalAdvance(label)
+        text_height = metrics.height()
+        padding_x = 8
+        padding_y = 4
+
+        self.label_bg.setRect(18, -12, text_width + padding_x * 2, text_height + padding_y * 2)
+        self.text.setPos(18 + padding_x, -12 + padding_y)
 
 
 class FloorPlanCanvas(QGraphicsView):
@@ -99,7 +125,13 @@ class FloorPlanCanvas(QGraphicsView):
     def add_marker(self, token: dict, x: float, y: float) -> None:
         if self.image_item is None:
             return
-        marker = MarkerItem(token["label"], token["token_id"], token["room_name"], token["item_type"])
+        marker = MarkerItem(
+            token["label"],
+            token["token_id"],
+            token["room_name"],
+            token["item_type"],
+            token.get("marker_kind", "sensor"),
+        )
         marker.setPos(x, y)
         self.scene.addItem(marker)
         self.marker_items[token["token_id"]] = marker
@@ -124,7 +156,7 @@ class FloorPlanCanvas(QGraphicsView):
             token = json.loads(payload)
         except json.JSONDecodeError:
             return
-        required_keys = {"token_id", "room_name", "item_type", "label"}
+        required_keys = {"token_id", "room_name", "item_type", "label", "marker_kind"}
         if not isinstance(token, dict) or not required_keys.issubset(token.keys()):
             return
         scene_pos = self.mapToScene(event.position().toPoint())
@@ -134,6 +166,7 @@ class FloorPlanCanvas(QGraphicsView):
                 "room_name": str(token["room_name"]),
                 "item_type": str(token["item_type"]),
                 "label": str(token["label"]),
+                "marker_kind": str(token["marker_kind"]),
                 "x": float(scene_pos.x()),
                 "y": float(scene_pos.y()),
             }
@@ -156,7 +189,9 @@ class FloorPlanPage(QWidget):
 
         root = QVBoxLayout(self)
         root.addWidget(QLabel("<h2>Grundriss-Planung</h2>"))
-        hint = QLabel("Lade pro Etage einen Grundriss und ziehe LAN-Dosen/APs aus der Liste auf das Bild.")
+        hint = QLabel(
+            "Lade pro Etage einen Grundriss und ziehe LAN-Dosen, Access Points oder Sensoren aus der Liste auf das Bild."
+        )
         hint.setStyleSheet("color:#94a3b8;")
         root.addWidget(hint)
 
@@ -210,6 +245,7 @@ class FloorPlanPage(QWidget):
             sockets = _parse_amount(socket_selections)
             aps = _parse_amount(ap_selections)
             floor_tokens = self.tokens_by_floor.setdefault(room.floor, [])
+
             for idx in range(1, sockets + 1):
                 floor_tokens.append(
                     PlacementToken(
@@ -217,6 +253,7 @@ class FloorPlanPage(QWidget):
                         room_name=room.name,
                         item_type="LAN-Dose",
                         label=f"{room.name} LAN {idx}",
+                        marker_kind="lan",
                     )
                 )
             for idx in range(1, aps + 1):
@@ -226,8 +263,28 @@ class FloorPlanPage(QWidget):
                         room_name=room.name,
                         item_type="Access Point",
                         label=f"{room.name} AP {idx}",
+                        marker_kind="ap",
                     )
                 )
+
+            sensor_index = 1
+            sensor_selections = []
+            for sensor_key in ["room_sensor_general", "room_climate_sensors"]:
+                topic = room.topics.get(sensor_key)
+                if topic:
+                    sensor_selections.extend(topic.selections)
+
+            for sensor_name in sensor_selections:
+                floor_tokens.append(
+                    PlacementToken(
+                        token_id=f"{room.name}|sensor|{_slug(sensor_name)}|{sensor_index}",
+                        room_name=room.name,
+                        item_type=f"Sensor: {sensor_name}",
+                        label=f"{room.name} {sensor_name}",
+                        marker_kind="sensor",
+                    )
+                )
+                sensor_index += 1
 
     def _select_floor(self, floor: str) -> None:
         self.current_floor = floor
@@ -256,6 +313,7 @@ class FloorPlanPage(QWidget):
                         "room_name": token.room_name,
                         "item_type": token.item_type,
                         "label": token.label,
+                        "marker_kind": token.marker_kind,
                     },
                     ensure_ascii=False,
                 ),
@@ -264,13 +322,21 @@ class FloorPlanPage(QWidget):
 
         room_summaries: Dict[str, Dict[str, int]] = {}
         for token in self.tokens_by_floor.get(self.current_floor, []):
-            row = room_summaries.setdefault(token.room_name, {"LAN-Dose": 0, "Access Point": 0})
-            row[token.item_type] += 1
+            row = room_summaries.setdefault(token.room_name, {"LAN-Dose": 0, "Access Point": 0, "Sensor": 0})
+            if token.marker_kind == "lan":
+                row["LAN-Dose"] += 1
+            elif token.marker_kind == "ap":
+                row["Access Point"] += 1
+            elif token.marker_kind == "sensor":
+                row["Sensor"] += 1
+
         summary_parts = [
-            f"{room}: {counts['LAN-Dose']} LAN-Dosen, {counts['Access Point']} AP"
+            f"{room}: {counts['LAN-Dose']} LAN-Dosen, {counts['Access Point']} AP, {counts['Sensor']} Sensoren"
             for room, counts in room_summaries.items()
         ]
-        self.summary_label.setText(" • ".join(summary_parts) if summary_parts else "Keine platzierbaren Netzwerkobjekte auf dieser Etage.")
+        self.summary_label.setText(
+            " • ".join(summary_parts) if summary_parts else "Keine platzierbaren Netzwerkobjekte auf dieser Etage."
+        )
 
         self._load_floor_image_and_markers()
 
@@ -294,6 +360,7 @@ class FloorPlanPage(QWidget):
                     "room_name": placement.get("room_name", ""),
                     "item_type": placement.get("item_type", ""),
                     "label": placement.get("label", ""),
+                    "marker_kind": placement.get("marker_kind", "sensor"),
                 },
                 float(placement.get("x", 0.0)) * width,
                 float(placement.get("y", 0.0)) * height,
@@ -317,7 +384,6 @@ class FloorPlanPage(QWidget):
         floor_data["placements"] = placements
         self._reload_floor_view()
         self.changed.emit()
-
 
     def _delete_selected_markers(self) -> None:
         if self.canvas.image_item is None:
@@ -371,6 +437,7 @@ class FloorPlanPage(QWidget):
                     "room_name": marker.room_name,
                     "item_type": marker.item_type,
                     "label": marker.text.text(),
+                    "marker_kind": marker.marker_kind,
                     "x": max(0.0, min(pos.x(), float(width))) / width,
                     "y": max(0.0, min(pos.y(), float(height))) / height,
                 }
@@ -380,7 +447,6 @@ class FloorPlanPage(QWidget):
 
     def persist(self) -> None:
         self._emit_changed()
-
 
 
 def _parse_amount(selections: List[str]) -> int:
@@ -403,3 +469,7 @@ def _parse_amount(selections: List[str]) -> int:
         "4 AP": 4,
     }
     return max((mapping.get(s, 0) for s in selections), default=0)
+
+
+def _slug(value: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in value).strip("_")
