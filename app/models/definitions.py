@@ -9,6 +9,8 @@ FLOORS: Dict[str, List[str]] = {
     "OG": ["Kinderzimmer 1", "Kinderzimmer 2", "Flur OG", "Ankleide", "Schlafzimmer", "Bad"],
 }
 
+OUTDOOR_AREA_NAME = "Außenbereich"
+
 DOMAIN_SMART = "SMART_HOME"
 DOMAIN_ELEC = "ELEKTRIK"
 DOMAIN_IT = "IT_NETZWERK"
@@ -93,6 +95,22 @@ OPTION_SETS: Dict[str, List[str]] = {
     "AUTOMATION_LEVEL_OPTIONS": [
         "Keine Automationen", "Basis (Zeit/Schwellwert)", "Mittel (Szenen + Präsenz)", "Erweitert (Kontext + Energie)",
     ],
+    "ROUTER_OPTIONS": [
+        "Vorhanden und ausreichend", "Vorhanden, Upgrade empfohlen", "Neuanschaffung geplant", "Provider-Router + eigener Router",
+    ],
+    "SWITCH_SIZE_OPTIONS": [
+        "Kein zusätzlicher Switch", "8 Ports", "16 Ports", "24 Ports", "48 Ports", "Mehrere Switches",
+    ],
+    "LAN_PORT_COUNT_OPTIONS": [
+        "Keine LAN-Ports", "1 Port", "2 Ports", "3 Ports", "4 Ports", "5 Ports", "6 Ports", "7 Ports", "8 Ports", "9 Ports", "10 Ports",
+    ],
+    "AP_PLAN_OPTIONS": [
+        "0 AP", "1 AP", "2 AP", "3 AP", "4 AP",
+    ],
+    "OUTDOOR_DEVICE_COUNT_OPTIONS": ["0", "1", "2", "3", "4", "5", "6", "7", "8"],
+    "OUTDOOR_SMART_OPTIONS": [
+        "Temperatursensor", "Luftfeuchtesensor", "Helligkeitssensor", "Bewegungsmelder außen", "Wetterstation", "Smarter Gartenaktor",
+    ],
 }
 
 
@@ -125,6 +143,10 @@ GLOBAL_TOPICS: List[TopicDefinition] = [
     TopicDefinition("global_anschluss", "VERDRAHTUNG & ELEKTRIK", "Anschlussplan", "Anschluss-/Klemmenplan vorhanden", "YES_MAYBE_NO", [DOMAIN_ELEC], True),
 
     TopicDefinition("global_network", "NETZWERK & FUNK", "Netzwerkstrategie", "LAN/WLAN/AP Strategie", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
+    TopicDefinition("global_router", "NETZWERK & FUNK", "Router-Status", "Ist ein Router vorhanden und ausreichend?", "ROUTER_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("global_switch_size", "NETZWERK & FUNK", "Switch-Größe", "Portkapazität für den zentralen Switch", "SWITCH_SIZE_OPTIONS", [DOMAIN_IT], True, 2),
+    TopicDefinition("global_switch_poe", "NETZWERK & FUNK", "Switch PoE-Anteil", "Anteil der Ports mit PoE-Bedarf", "YES_MAYBE_NO", [DOMAIN_IT], True),
+    TopicDefinition("global_ap_count", "NETZWERK & FUNK", "Access-Point-Menge", "Ist die Anzahl geplanter APs ausreichend?", "YES_MAYBE_NO", [DOMAIN_IT], True),
     TopicDefinition("global_poe", "NETZWERK & FUNK", "PoE-Planung", "PoE-Versorgung geplant", "YES_MAYBE_NO", [DOMAIN_IT]),
     TopicDefinition("global_coverage", "NETZWERK & FUNK", "WLAN-Abdeckungsziel", "Qualitätsziel je Hausbereich", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("global_protocols", "NETZWERK & FUNK", "Funk-/Bus-Protokolle", "Genutzte Smart-Home-Protokolle", "PROTOCOL_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 3),
@@ -153,12 +175,21 @@ ROOM_TOPICS: List[TopicDefinition] = [
     TopicDefinition("room_camera_storage", "SICHERHEIT", "Kamera-Aufzeichnung", "Wie Kameradaten gespeichert werden", "CAMERA_STORAGE_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], False, 2),
 
     TopicDefinition("room_network", "NETZWERK", "Netzwerk", "LAN/WLAN/PoE im Raum", "ROOM_NETWORK_OPTIONS", [DOMAIN_IT], True),
+    TopicDefinition("room_lan_ports", "NETZWERK", "LAN-Kabel pro Raum", "Wie viele LAN-Dosen/Client-Kabel sollen im Raum verlegt werden (ohne Access Points)", "LAN_PORT_COUNT_OPTIONS", [DOMAIN_IT], True, 1),
+    TopicDefinition("room_access_point", "NETZWERK", "Access Points im Raum", "Wie viele Access Points werden in diesem Raum geplant (PoE-Deckenleitung)", "AP_PLAN_OPTIONS", [DOMAIN_IT], True, 1),
     TopicDefinition("room_coverage", "NETZWERK", "Netzabdeckung Raum", "Abdeckungsziel pro Raum", "COVERAGE_OPTIONS", [DOMAIN_IT], True, 2),
     TopicDefinition("room_power", "NETZWERK", "Steckdosen & Messung", "Schalt-/Messbedarf", "POWER_OPTIONS", [DOMAIN_ELEC, DOMAIN_SMART]),
 
     TopicDefinition("room_sensor_general", "AUTOMATIONEN", "Sensorik allgemein", "Automationssensorik", "SENSOR_OPTIONS", [DOMAIN_SMART]),
     TopicDefinition("room_shade", "AUTOMATIONEN", "Beschattung", "Beschattungslogik", "SHADE_OPTIONS", [DOMAIN_SMART, DOMAIN_ELEC]),
     TopicDefinition("room_scenes", "AUTOMATIONEN", "Szenenbedarf", "Szenen wie Abend/Abwesend/Urlaub", "YES_MAYBE_NO", [DOMAIN_SMART], True),
+]
+
+OUTDOOR_TOPICS: List[TopicDefinition] = [
+    TopicDefinition("outdoor_camera_count", "SICHERHEIT AUSSEN", "Außenkameras (PoE)", "Wie viele Außenkameras werden geplant", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 1),
+    TopicDefinition("outdoor_doorbell_count", "SICHERHEIT AUSSEN", "Smarte Türklingel (PoE)", "Wie viele smarte Türklingeln werden geplant", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT, DOMAIN_SMART], True, 1),
+    TopicDefinition("outdoor_smart_sensors", "SMART HOME AUSSEN", "Outdoor-Sensorik", "Welche Sensoren werden im Außenbereich eingesetzt", "OUTDOOR_SMART_OPTIONS", [DOMAIN_SMART], False, 6),
+    TopicDefinition("outdoor_access_points", "NETZWERK AUSSEN", "Outdoor Access Points", "Wie viele Outdoor-APs werden über PoE angeschlossen", "OUTDOOR_DEVICE_COUNT_OPTIONS", [DOMAIN_IT], False, 1),
 ]
 
 
