@@ -12,6 +12,7 @@ class TopicState:
     selections: List[str] = field(default_factory=list)
     notes: str = ""
     assignee: str = ""
+    quantities: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -36,6 +37,8 @@ class Project:
     global_topics: Dict[str, TopicState]
     outdoor_topics: Dict[str, TopicState]
     rooms: Dict[str, RoomData]
+    pricing_settings: Dict[str, object] = field(default_factory=dict)
+    floor_plans: Dict[str, Dict[str, object]] = field(default_factory=dict)
 
     def touch(self) -> None:
         self.metadata.updated_at = datetime.now().isoformat(timespec="seconds")
@@ -68,7 +71,20 @@ class Project:
             for topic in OUTDOOR_TOPICS:
                 outdoor_topics[topic.key] = legacy_topics.get(topic.key, outdoor_topics[topic.key])
 
-        return Project(metadata=metadata, global_topics=global_topics, outdoor_topics=outdoor_topics, rooms=rooms)
+        pricing_settings_raw = data.get("pricing_settings", {})
+        pricing_settings = pricing_settings_raw if isinstance(pricing_settings_raw, dict) else {}
+
+        floor_plans_raw = data.get("floor_plans", {})
+        floor_plans = floor_plans_raw if isinstance(floor_plans_raw, dict) else {}
+
+        return Project(
+            metadata=metadata,
+            global_topics=global_topics,
+            outdoor_topics=outdoor_topics,
+            rooms=rooms,
+            pricing_settings=pricing_settings,
+            floor_plans=floor_plans,
+        )
 
 
 def create_empty_project(name: str) -> Project:
@@ -82,4 +98,11 @@ def create_empty_project(name: str) -> Project:
                 floor=floor,
                 topics={topic.key: TopicState() for topic in ROOM_TOPICS},
             )
-    return Project(metadata=ProjectMetadata(project_name=name), global_topics=global_topics, outdoor_topics=outdoor_topics, rooms=rooms)
+    return Project(
+        metadata=ProjectMetadata(project_name=name),
+        global_topics=global_topics,
+        outdoor_topics=outdoor_topics,
+        rooms=rooms,
+        pricing_settings={},
+        floor_plans={},
+    )

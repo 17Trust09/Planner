@@ -1,17 +1,70 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from app.models.definitions import GLOBAL_TOPICS, ROOM_TOPICS
+from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
 from app.models.project import Project
 from app.services.evaluation import build_room_matrix, topic_metrics
+from app.services.pricing import estimate_project_costs
 
 HEADER_FILL = PatternFill("solid", fgColor="1D4ED8")
 SECTION_FILL = PatternFill("solid", fgColor="E2E8F0")
 ALT_FILL = PatternFill("solid", fgColor="F8FAFC")
+
+
+def _floor_plan_image_bytes(floor_data: dict) -> bytes | None:
+    image_data = floor_data.get("image_data")
+    if image_data:
+        try:
+            return base64.b64decode(str(image_data), validate=True)
+        except (ValueError, TypeError):
+            pass
+
+    image_path = floor_data.get("image_path")
+    if image_path:
+        try:
+            return Path(str(image_path)).read_bytes()
+        except OSError:
+            return None
+    return None
+
+
+def _write_floor_plan_sheet(wb: Workbook, project: Project) -> None:
+    ws = wb.create_sheet("Grundrisse")
+    ws.append(["Etage", "Bild gespeichert", "Bildpfad", "Marker-Anzahl", "Marker-Details"])
+    for c in ws[1]:
+        c.fill = HEADER_FILL
+        c.font = Font(color="FFFFFF", bold=True)
+
+    row = 2
+    for floor, floor_data in sorted(project.floor_plans.items()):
+        placements = floor_data.get("placements", []) if isinstance(floor_data, dict) else []
+        details = "; ".join(
+            f"{p.get('label', 'Marker')} @ ({round(float(p.get('x', 0))*100)}%, {round(float(p.get('y', 0))*100)}%)"
+            for p in placements
+        ) or "—"
+        has_image = "Ja" if _floor_plan_image_bytes(floor_data if isinstance(floor_data, dict) else {}) else "Nein"
+        ws.append([
+            floor,
+            has_image,
+            (floor_data.get("image_path", "") if isinstance(floor_data, dict) else ""),
+            len(placements),
+            details,
+        ])
+        if row % 2 == 0:
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).fill = ALT_FILL
+        row += 1
+
+    for col, width in zip("ABCDE", [12, 16, 42, 14, 80]):
+        ws.column_dimensions[col].width = width
+    for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=5):
+        for c in r:
+            c.alignment = Alignment(vertical="top", wrap_text=True)
 
 
 def _write_topic_sheet(ws, title: str, topics, topic_values) -> None:
@@ -48,12 +101,16 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
     ws_global = wb.active
     _write_topic_sheet(ws_global, "Global_Planung", GLOBAL_TOPICS, project.global_topics)
 
+    ws_outdoor = wb.create_sheet(title=OUTDOOR_AREA_NAME[:31])
+    _write_topic_sheet(ws_outdoor, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, project.outdoor_topics)
+
     for room_name, room in project.rooms.items():
         ws = wb.create_sheet(title=room_name[:31])
         _write_topic_sheet(ws, room_name, ROOM_TOPICS, room.topics)
 
     ws_eval = wb.create_sheet("Auswertung_Raumvergleich")
-    ws_eval.append(["Topic", *project.rooms.keys(), "Räume mit Auswahl", "Diversity", "Dominanz"])
+    evaluation_columns = [OUTDOOR_AREA_NAME, *project.rooms.keys()]
+    ws_eval.append(["Topic", *evaluation_columns, "Bereiche mit Auswahl", "Diversity", "Dominanz"])
     for c in ws_eval[1]:
         c.fill = HEADER_FILL
         c.font = Font(color="FFFFFF", bold=True)
@@ -61,7 +118,7 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
     metrics = topic_metrics(project)
     row = 2
     for topic, per_room in matrix.items():
-        values = [", ".join(per_room[r]) or "—" for r in project.rooms.keys()]
+        values = [", ".join(per_room[column]) or "—" for column in evaluation_columns]
         m = metrics[topic]
         ws_eval.append([
             topic,
@@ -76,5 +133,42 @@ def export_project_to_excel(project: Project, target_file: Path) -> None:
         row += 1
     for i in range(1, ws_eval.max_column + 1):
         ws_eval.column_dimensions[chr(64 + i)].width = 22
+
+
+    ws_cost = wb.create_sheet("Kostenübersicht")
+    ws_cost.append(["Kategorie", "Beschreibung", "Menge", "Min (€)", "Typisch (€)", "Max (€)"])
+    for c in ws_cost[1]:
+        c.fill = HEADER_FILL
+        c.font = Font(color="FFFFFF", bold=True)
+
+    pricing = estimate_project_costs(project)
+    row = 2
+    for item in pricing["line_items"]:
+        ws_cost.append([
+            item["category"],
+            item["description"],
+            item["quantity"],
+            item["cost"]["min"],
+            item["cost"]["typical"],
+            item["cost"]["max"],
+        ])
+        if row % 2 == 0:
+            for col in range(1, 7):
+                ws_cost.cell(row=row, column=col).fill = ALT_FILL
+        row += 1
+
+    totals = pricing["totals"]
+    ws_cost.append(["", "", "", "", "", ""])
+    ws_cost.append(["GESAMT", "", "", totals["min"], totals["typical"], totals["max"]])
+    for col, width in zip("ABCDEF", [24, 50, 10, 14, 14, 14]):
+        ws_cost.column_dimensions[col].width = width
+
+    ws_cost.append(["", "", "", "", "", ""])
+    ws_cost.append(["Annahmen", "", "", "", "", ""])
+    for note in pricing["assumptions"]:
+        ws_cost.append([f"• {note}", "", "", "", "", ""])
+
+    _write_floor_plan_sheet(wb, project)
+
     target_file.parent.mkdir(parents=True, exist_ok=True)
     wb.save(target_file)
