@@ -24,8 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.models.definitions import FLOORS, GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
-from app.models.project import Project, create_empty_project
+from app.models.definitions import GLOBAL_TOPICS, OUTDOOR_AREA_NAME, OUTDOOR_TOPICS, ROOM_TOPICS
+from app.models.project import Project, create_empty_project, ordered_room_ids
 from app.services.evaluation import recommended_global_network_topics
 from app.services.export_excel import export_project_to_excel
 from app.services.export_pdf import export_project_to_pdf
@@ -33,6 +33,7 @@ from app.services.storage import PROJECTS_DIR, list_projects, load_project, save
 from app.services.validation import MissingRequiredField, required_field_entries
 from app.ui.pages.evaluation_page import EvaluationPage
 from app.ui.pages.floor_plan_page import FloorPlanPage
+from app.ui.pages.house_structure_page import HouseStructurePage
 from app.ui.pages.pricing_page import PricingPage
 from app.ui.pages.start_page import StartPage
 from app.ui.pages.topic_page import TopicPage
@@ -187,6 +188,10 @@ class MainWindow(QMainWindow):
         evaluation_item.setData(0, Qt.UserRole, "evaluation")
         overview.addChild(evaluation_item)
 
+        structure_item = QTreeWidgetItem(["Hausstruktur"])
+        structure_item.setData(0, Qt.UserRole, "structure")
+        overview.addChild(structure_item)
+
         floor_plan_item = QTreeWidgetItem(["Grundrisse"])
         floor_plan_item.setData(0, Qt.UserRole, "floor_plans")
         overview.addChild(floor_plan_item)
@@ -195,18 +200,27 @@ class MainWindow(QMainWindow):
         rooms_root.setFlags(rooms_root.flags() & ~Qt.ItemIsSelectable)
         self.nav.addTopLevelItem(rooms_root)
 
-        outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
-        outdoor_item.setData(0, Qt.UserRole, "outdoor")
-        rooms_root.addChild(outdoor_item)
+        for area in self.current_project.house_areas:
+            if area.name == OUTDOOR_AREA_NAME:
+                outdoor_item = QTreeWidgetItem([OUTDOOR_AREA_NAME])
+                outdoor_item.setData(0, Qt.UserRole, "outdoor")
+                rooms_root.addChild(outdoor_item)
+                continue
 
-        for floor, rooms in FLOORS.items():
-            floor_item = QTreeWidgetItem([floor])
-            floor_item.setFlags(floor_item.flags() & ~Qt.ItemIsSelectable)
-            rooms_root.addChild(floor_item)
-            for room in rooms:
-                room_item = QTreeWidgetItem([room])
-                room_item.setData(0, Qt.UserRole, room)
-                floor_item.addChild(room_item)
+            area_item = QTreeWidgetItem([area.name])
+            area_item.setFlags(area_item.flags() & ~Qt.ItemIsSelectable)
+            rooms_root.addChild(area_item)
+            for sub in area.subareas:
+                sub_item = QTreeWidgetItem([sub.name])
+                sub_item.setFlags(sub_item.flags() & ~Qt.ItemIsSelectable)
+                area_item.addChild(sub_item)
+                for room_id in sub.rooms:
+                    room = self.current_project.rooms.get(room_id)
+                    if room is None:
+                        continue
+                    room_item = QTreeWidgetItem([room.name])
+                    room_item.setData(0, Qt.UserRole, f"room:{room_id}")
+                    sub_item.addChild(room_item)
 
         self.nav.expandAll()
         self.nav.setCurrentItem(start_item)
@@ -226,15 +240,21 @@ class MainWindow(QMainWindow):
         self.pricing_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.pricing_page)
 
+        self.structure_page = HouseStructurePage(self.current_project)
+        self.structure_page.changed.connect(self._on_project_changed)
+        self.structure_page.structure_changed.connect(self._on_structure_changed)
+        self.stack.addWidget(self.structure_page)
+
         self.floor_plan_page = FloorPlanPage(self.current_project)
         self.floor_plan_page.changed.connect(self._on_project_changed)
         self.stack.addWidget(self.floor_plan_page)
 
         self.stack.addWidget(self.eval_page)
-        for room_name in self.current_project.rooms.keys():
-            page = TopicPage(room_name, ROOM_TOPICS, self.current_project.rooms[room_name].topics)
+        for room_id in ordered_room_ids(self.current_project):
+            room = self.current_project.rooms[room_id]
+            page = TopicPage(room.name, ROOM_TOPICS, room.topics)
             page.changed.connect(self._on_project_changed)
-            self.room_pages[room_name] = page
+            self.room_pages[room_id] = page
             self.stack.addWidget(page)
         self.eval_page.refresh(self.current_project)
 
@@ -310,6 +330,9 @@ class MainWindow(QMainWindow):
         if key == "pricing":
             self.stack.setCurrentWidget(self.pricing_page)
             return
+        if key == "structure":
+            self.stack.setCurrentWidget(self.structure_page)
+            return
         if key == "evaluation":
             self._persist_all_pages()
             self.eval_page.refresh(self.current_project)
@@ -320,8 +343,9 @@ class MainWindow(QMainWindow):
             self.floor_plan_page.refresh()
             self.stack.setCurrentWidget(self.floor_plan_page)
             return
-        if isinstance(key, str):
-            page = self.room_pages.get(key)
+        if isinstance(key, str) and key.startswith("room:"):
+            room_id = key.split(":", 1)[1]
+            page = self.room_pages.get(room_id)
             if page:
                 self.stack.setCurrentWidget(page)
 
@@ -352,6 +376,7 @@ class MainWindow(QMainWindow):
         self.global_page.persist()
         self.outdoor_page.persist()
         self.pricing_page.persist()
+        self.structure_page.persist()
         self.floor_plan_page.persist()
         for page in self.room_pages.values():
             page.persist()
@@ -375,6 +400,10 @@ class MainWindow(QMainWindow):
                 row.add_combo(emit=False)
             target = selections[0] if selections else ""
             row.combos[0].setCurrentText(target)
+
+    def _on_structure_changed(self) -> None:
+        self.current_project.touch()
+        self._rebuild_for_project()
 
     def _on_project_changed(self) -> None:
         self.current_project.touch()

@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.definitions import OUTDOOR_AREA_NAME
-from app.models.project import Project
+from app.models.project import Project, floor_scopes
 
 
 @dataclass
@@ -224,7 +224,8 @@ class FloorPlanPage(QWidget):
     def __init__(self, project: Project):
         super().__init__()
         self.project = project
-        self.current_floor = next(iter({room.floor for room in project.rooms.values()}), "EG")
+        scopes = floor_scopes(project)
+        self.current_floor = scopes[0] if scopes else OUTDOOR_AREA_NAME
         self.tokens_by_floor: Dict[str, List[PlacementToken]] = {}
 
         root = QVBoxLayout(self)
@@ -241,7 +242,7 @@ class FloorPlanPage(QWidget):
 
         top_row = QHBoxLayout()
         self.floor_buttons: Dict[str, QPushButton] = {}
-        for floor in sorted({room.floor for room in project.rooms.values()} | {OUTDOOR_AREA_NAME}):
+        for floor in floor_scopes(project):
             button = QPushButton(floor)
             button.clicked.connect(lambda _=False, name=floor: self._select_floor(name))
             self.floor_buttons[floor] = button
@@ -389,6 +390,9 @@ class FloorPlanPage(QWidget):
         self._reload_floor_view()
 
     def refresh(self) -> None:
+        scopes = floor_scopes(self.project)
+        if self.current_floor not in scopes:
+            self.current_floor = scopes[0] if scopes else OUTDOOR_AREA_NAME
         self._reload_floor_view()
 
     def _reload_floor_view(self) -> None:
@@ -396,6 +400,9 @@ class FloorPlanPage(QWidget):
         self.todo_list.clear()
         floor_data = self.project.floor_plans.setdefault(self.current_floor, {"image_path": "", "placements": []})
         placements = floor_data.get("placements", [])
+        valid_ids = {token.token_id for token in self.tokens_by_floor.get(self.current_floor, [])}
+        placements = [p for p in placements if p.get("token_id") in valid_ids]
+        floor_data["placements"] = placements
         placed_ids = {p.get("token_id") for p in placements}
 
         pending = [token for token in self.tokens_by_floor.get(self.current_floor, []) if token.token_id not in placed_ids]
