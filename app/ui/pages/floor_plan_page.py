@@ -8,7 +8,7 @@ from typing import Dict, List
 import re
 
 from PySide6.QtCore import QMimeData, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QFontMetrics, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QFont, QFontMetrics, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsEllipseItem,
@@ -60,6 +60,29 @@ class FloorPlanListWidget(QListWidget):
         drag.exec(supportedActions)
 
 
+
+
+def _marker_symbol(marker_kind: str) -> str:
+    symbols = {
+        "lan": "LAN",
+        "ap": "AP",
+        "sensor": "S",
+        "light": "💡",
+        "outdoor_light": "☀",
+    }
+    return symbols.get(marker_kind, "•")
+
+
+def _marker_label_prefix(marker_kind: str) -> str:
+    prefixes = {
+        "lan": "🔌",
+        "ap": "📶",
+        "sensor": "🧪",
+        "light": "💡",
+        "outdoor_light": "☀️",
+    }
+    return prefixes.get(marker_kind, "•")
+
 def _marker_color(marker_kind: str) -> QColor:
     palette = {
         "lan": QColor("#2563eb"),
@@ -81,14 +104,26 @@ class MarkerItem(QGraphicsEllipseItem):
 
         color = _marker_color(marker_kind)
         self.setBrush(QBrush(color))
-        self.setPen(QPen(QColor("#f8fafc"), 1.5))
+        self.setPen(QPen(QColor("#f8fafc"), 2.0))
         self.setFlag(QGraphicsEllipseItem.ItemIsMovable, True)
         self.setFlag(QGraphicsEllipseItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsEllipseItem.ItemSendsScenePositionChanges, True)
 
+        symbol = _marker_symbol(marker_kind)
+        self.symbol_text = QGraphicsSimpleTextItem(symbol, self)
+        symbol_font = QFont(self.symbol_text.font())
+        symbol_font.setBold(True)
+        symbol_font.setPointSize(9)
+        self.symbol_text.setFont(symbol_font)
+        self.symbol_text.setBrush(QBrush(QColor("#f8fafc")))
+        symbol_metrics = QFontMetrics(symbol_font)
+        symbol_width = symbol_metrics.horizontalAdvance(symbol)
+        symbol_height = symbol_metrics.height()
+        self.symbol_text.setPos(-symbol_width / 2, -symbol_height / 2 + 1)
+
         self.label_bg = QGraphicsRectItem(self)
-        self.label_bg.setBrush(QBrush(QColor(15, 23, 42, 220)))
-        self.label_bg.setPen(QPen(QColor(148, 163, 184, 200), 1.0))
+        self.label_bg.setBrush(QBrush(QColor(15, 23, 42, 228)))
+        self.label_bg.setPen(QPen(QColor(148, 163, 184, 210), 1.0))
 
         self.text = QGraphicsSimpleTextItem(label, self)
         self.text.setBrush(QBrush(QColor("#f8fafc")))
@@ -99,8 +134,8 @@ class MarkerItem(QGraphicsEllipseItem):
         padding_x = 8
         padding_y = 4
 
-        self.label_bg.setRect(18, -12, text_width + padding_x * 2, text_height + padding_y * 2)
-        self.text.setPos(18 + padding_x, -12 + padding_y)
+        self.label_bg.setRect(22, -12, text_width + padding_x * 2, text_height + padding_y * 2)
+        self.text.setPos(22 + padding_x, -12 + padding_y)
 
 
 class FloorPlanCanvas(QGraphicsView):
@@ -199,6 +234,10 @@ class FloorPlanPage(QWidget):
         )
         hint.setStyleSheet("color:#94a3b8;")
         root.addWidget(hint)
+
+        legend = QLabel("Legende: 🔌 LAN · 📶 AP · 🧪 Sensor · 💡 Innenlicht · ☀️ Außenlicht")
+        legend.setStyleSheet("color:#cbd5e1;")
+        root.addWidget(legend)
 
         top_row = QHBoxLayout()
         self.floor_buttons: Dict[str, QPushButton] = {}
@@ -361,7 +400,7 @@ class FloorPlanPage(QWidget):
 
         pending = [token for token in self.tokens_by_floor.get(self.current_floor, []) if token.token_id not in placed_ids]
         for token in pending:
-            item = QListWidgetItem(f"{token.label} ({token.item_type})")
+            item = QListWidgetItem(f"{_marker_label_prefix(token.marker_kind)} {token.label} ({token.item_type})")
             item.setData(
                 Qt.UserRole,
                 json.dumps(
