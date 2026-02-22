@@ -5,6 +5,7 @@ import base64
 import json
 from pathlib import Path
 from typing import Dict, List
+import re
 
 from PySide6.QtCore import QMimeData, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QDrag, QDragEnterEvent, QDropEvent, QFontMetrics, QPen, QPixmap
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.models.definitions import OUTDOOR_AREA_NAME
 from app.models.project import Project
 
 
@@ -63,6 +65,8 @@ def _marker_color(marker_kind: str) -> QColor:
         "lan": QColor("#2563eb"),
         "ap": QColor("#16a34a"),
         "sensor": QColor("#d97706"),
+        "light": QColor("#ca8a04"),
+        "outdoor_light": QColor("#9333ea"),
     }
     return palette.get(marker_kind, QColor("#475569"))
 
@@ -191,14 +195,14 @@ class FloorPlanPage(QWidget):
         root = QVBoxLayout(self)
         root.addWidget(QLabel("<h2>Grundriss-Planung</h2>"))
         hint = QLabel(
-            "Lade pro Etage einen Grundriss und ziehe LAN-Dosen, Access Points oder Sensoren aus der Liste auf das Bild."
+            "Lade pro Bereich einen Grundriss und ziehe LAN-Dosen, Access Points, Sensoren oder Lichtpunkte aus der Liste auf das Bild."
         )
         hint.setStyleSheet("color:#94a3b8;")
         root.addWidget(hint)
 
         top_row = QHBoxLayout()
         self.floor_buttons: Dict[str, QPushButton] = {}
-        for floor in sorted({room.floor for room in project.rooms.values()}):
+        for floor in sorted({room.floor for room in project.rooms.values()} | {OUTDOOR_AREA_NAME}):
             button = QPushButton(floor)
             button.clicked.connect(lambda _=False, name=floor: self._select_floor(name))
             self.floor_buttons[floor] = button
@@ -268,6 +272,32 @@ class FloorPlanPage(QWidget):
                     )
                 )
 
+            ceiling_topic = room.topics.get("room_ceiling_light_count")
+            spot_topic = room.topics.get("room_spotlight_count")
+            ceiling_lights = _parse_amount(ceiling_topic.selections if ceiling_topic else [])
+            spot_lights = _parse_amount(spot_topic.selections if spot_topic else [])
+
+            for idx in range(1, ceiling_lights + 1):
+                floor_tokens.append(
+                    PlacementToken(
+                        token_id=f"{room.name}|light_ceiling|{idx}",
+                        room_name=room.name,
+                        item_type="Deckenlicht",
+                        label=f"{room.name} Deckenlicht {idx}",
+                        marker_kind="light",
+                    )
+                )
+            for idx in range(1, spot_lights + 1):
+                floor_tokens.append(
+                    PlacementToken(
+                        token_id=f"{room.name}|light_spot|{idx}",
+                        room_name=room.name,
+                        item_type="Spot",
+                        label=f"{room.name} Spot {idx}",
+                        marker_kind="light",
+                    )
+                )
+
             sensor_index = 1
             sensor_selections = []
             for sensor_key in ["room_sensor_general", "room_climate_sensors"]:
@@ -298,6 +328,20 @@ class FloorPlanPage(QWidget):
                         )
                     )
                     sensor_index += 1
+
+        outdoor_tokens = self.tokens_by_floor.setdefault(OUTDOOR_AREA_NAME, [])
+        outdoor_light_topic = self.project.outdoor_topics.get("outdoor_light_count")
+        outdoor_lights = _parse_amount(outdoor_light_topic.selections if outdoor_light_topic else [])
+        for idx in range(1, outdoor_lights + 1):
+            outdoor_tokens.append(
+                PlacementToken(
+                    token_id=f"außen|light|{idx}",
+                    room_name=OUTDOOR_AREA_NAME,
+                    item_type="Außenlicht",
+                    label=f"Außenlicht {idx}",
+                    marker_kind="outdoor_light",
+                )
+            )
 
     def _select_floor(self, floor: str) -> None:
         self.current_floor = floor
@@ -335,20 +379,22 @@ class FloorPlanPage(QWidget):
 
         room_summaries: Dict[str, Dict[str, int]] = {}
         for token in self.tokens_by_floor.get(self.current_floor, []):
-            row = room_summaries.setdefault(token.room_name, {"LAN-Dose": 0, "Access Point": 0, "Sensor": 0})
+            row = room_summaries.setdefault(token.room_name, {"LAN-Dose": 0, "Access Point": 0, "Sensor": 0, "Licht": 0})
             if token.marker_kind == "lan":
                 row["LAN-Dose"] += 1
             elif token.marker_kind == "ap":
                 row["Access Point"] += 1
             elif token.marker_kind == "sensor":
                 row["Sensor"] += 1
+            elif token.marker_kind in {"light", "outdoor_light"}:
+                row["Licht"] += 1
 
         summary_parts = [
-            f"{room}: {counts['LAN-Dose']} LAN-Dosen, {counts['Access Point']} AP, {counts['Sensor']} Sensoren"
+            f"{room}: {counts['LAN-Dose']} LAN-Dosen, {counts['Access Point']} AP, {counts['Sensor']} Sensoren, {counts['Licht']} Lichter"
             for room, counts in room_summaries.items()
         ]
         self.summary_label.setText(
-            " • ".join(summary_parts) if summary_parts else "Keine platzierbaren Netzwerkobjekte auf dieser Etage."
+            " • ".join(summary_parts) if summary_parts else "Keine platzierbaren Objekte auf diesem Bereich."
         )
 
         self._load_floor_image_and_markers()
@@ -478,23 +524,13 @@ class FloorPlanPage(QWidget):
 def _parse_amount(selections: List[str]) -> int:
     if not selections:
         return 0
-    mapping = {
-        "0 Dosen": 0,
-        "1 Dose": 1,
-        "2 Dosen": 2,
-        "3 Dosen": 3,
-        "4 Dosen": 4,
-        "5 Dosen": 5,
-        "6 Dosen": 6,
-        "7 Dosen": 7,
-        "8 Dosen": 8,
-        "0 AP": 0,
-        "1 AP": 1,
-        "2 AP": 2,
-        "3 AP": 3,
-        "4 AP": 4,
-    }
-    return max((mapping.get(s, 0) for s in selections), default=0)
+
+    best = 0
+    for selection in selections:
+        match = re.search(r"(\d+)", selection)
+        if match:
+            best = max(best, int(match.group(1)))
+    return best
 
 
 def _slug(value: str) -> str:
